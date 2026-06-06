@@ -39,3 +39,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+/src/generated/prisma
+#C:\Users\PC\Documents\services-hub\web\src\app\admin\providers\page.tsx
