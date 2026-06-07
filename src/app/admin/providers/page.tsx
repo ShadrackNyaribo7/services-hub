@@ -1,9 +1,27 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
+import { currentUser } from "@clerk/nextjs/server";
+import { redirect } from "next/navigation";
+
+
+
+async function requireAdmin() {
+  const user = await currentUser();
+  const email = user?.primaryEmailAddress?.emailAddress?.toLowerCase();
+
+  const adminEmails = (process.env.ADMIN_EMAILS ?? "")
+    .split(",")
+    .map((item) => item.trim().toLowerCase())
+    .filter(Boolean);
+
+  if (!email || !adminEmails.includes(email)) {
+    redirect("/");
+  }
+}
 
 async function updateProviderStatus(formData: FormData) {
   "use server";
-
+await requireAdmin();
   const id = String(formData.get("id"));
   const status = String(formData.get("status"));
 
@@ -20,6 +38,7 @@ async function updateProviderStatus(formData: FormData) {
 }
 
 export default async function AdminProvidersPage() {
+  await requireAdmin();
   const providers = await prisma.providerProfile.findMany({
     include: {
       user: true,
