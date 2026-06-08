@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import Link from "next/link";
 
 export default async function ServicesPage() {
   const providers = await prisma.providerProfile.findMany({
@@ -24,6 +25,12 @@ export default async function ServicesPage() {
               <h2 className="text-xl font-semibold">{provider.user.name}</h2>
               <p>{provider.serviceCategory}</p>
               <p>{provider.county}</p>
+
+              <Link
+              href={`/services/${provider.id}`}
+             className="mt-4 inline-block rounded-md bg-emerald-700 px-4 py-2 font-semibold text-white">
+  View Provider
+</Link>
             </div>
           ))}
         </div>

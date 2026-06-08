@@ -31,6 +31,7 @@ model ProviderProfile {
   verificationStatus      VerificationStatus   @default(PENDING)
   adminNotes              String?
   createdAt               DateTime             @default(now())
+  bookings Booking[]
 
   user User @relation(fields: [userId], references: [id])
 }
@@ -46,4 +47,26 @@ enum VerificationStatus {
   APPROVED
   REJECTED
   SUSPENDED
+}
+
+model Booking {
+  id                String        @id @default(cuid())
+  providerProfileId String
+  clientName        String
+  clientPhone       String
+  county            String
+  scheduledDate     DateTime
+  notes             String?
+  status            BookingStatus @default(REQUESTED)
+  createdAt         DateTime      @default(now())
+
+  providerProfile ProviderProfile @relation(fields: [providerProfileId], references: [id])
+}
+
+enum BookingStatus {
+  REQUESTED
+  ACCEPTED
+  REJECTED
+  COMPLETED
+  CANCELLED
 }

@@ -1,7 +1,17 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { auth } from "@clerk/nextjs/server";
 
 export async function POST(request: Request) {
+
+  const { userId } = await auth();
+
+if (!userId) {
+  return NextResponse.json(
+    { error: "You must be signed in to apply." },
+    { status: 401 }
+  );
+}
   try {
     const body = await request.json();
 
