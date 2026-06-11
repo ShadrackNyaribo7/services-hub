@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@clerk/nextjs": "^7.4.3",
+    "@lottiefiles/dotlottie-react": "^0.19.4",
     "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "^7.8.0",
     "next": "16.2.7",

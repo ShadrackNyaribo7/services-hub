@@ -1,22 +1,30 @@
-/*import { clerkMiddleware } from '@clerk/nextjs/server';
 
-export default clerkMiddleware();
+import "./globals.css"
+import {DotLottie} from "@lottiefiles/dotlottie-react";
+import Rocket from "./rocket.json"
+import React from 'react';
+import Lottie from "./component/lottie.jsx";
 
-export const config = {
-  matcher: [
-    // Skip Next.js internals and all static files, unless found in search params
-    '/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)',
-    // Always run for Clerk's auto-proxy path
-    '/__clerk/:path*',
-    // Always run for API routes
-    '/(api|trpc)(.*)',
-  ],
-};*/
+
+
+
 
 
 
 export default function Home() {
-  return (
+  return ( 
+    
+        function App () {
+          return (
+            
+            Lottie
+          )
+        }
+            
+          
+        
+
+
     <main className="min-h-screen bg-white text-slate-950">
       <section className="mx-auto flex min-h-screen max-w-6xl flex-col justify-center px-6 py-12">
         <p className="mb-3 text-sm font-semibold uppercase tracking-wide text-emerald-700">
@@ -31,7 +39,7 @@ export default function Home() {
           The centre for you to connect with validated service providers.
         </p>
 
-        <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+        <div className="loading">
           <a
             href="/providers/apply"
             className="rounded-md bg-emerald-700 px-5 py-3 text-center font-semibold text-white"
@@ -48,5 +56,8 @@ export default function Home() {
         </div>
       </section>
     </main>
+    
+    
   );
 }
+  
