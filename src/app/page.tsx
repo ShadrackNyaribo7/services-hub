@@ -1,3 +1,5 @@
+import LottiePlayer from "@/components/LottiePlayer";
+
 /*import { clerkMiddleware } from '@clerk/nextjs/server';
 
 export default clerkMiddleware();
@@ -13,12 +15,17 @@ export const config = {
   ],
 };*/
 
-
-
 export default function Home() {
   return (
     <main className="min-h-screen bg-white text-slate-950">
       <section className="mx-auto flex min-h-screen max-w-6xl flex-col justify-center px-6 py-12">
+        <LottiePlayer
+          src="/rocket.json"
+          className="mb-6 h-48 w-48"
+          loop
+          autoplay
+        />
+
         <p className="mb-3 text-sm font-semibold uppercase tracking-wide text-emerald-700">
           The ultimate service hub
         </p>
