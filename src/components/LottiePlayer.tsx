@@ -14,7 +14,10 @@ export default function LottiePlayer({ src, ...props }: LottiePlayerProps) {
     let active = true;
 
     fetch(src)
-      .then((res) => res.json())
+      .then((res) => {
+        if (!res.ok) throw new Error(res.statusText);
+        return res.json();
+      })
       .then((data) => {
         if (active) setAnimationData(data);
       })
