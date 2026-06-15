@@ -1,31 +1,12 @@
-
 import "./globals.css"
-import {DotLottie} from "@lottiefiles/dotlottie-react";
-import Rocket from "./rocket.json"
-import React from 'react';
 import Lottie from "./component/lottie.jsx";
 
-
-
-
-
-
-
 export default function Home() {
-  return ( 
-    
-        function App () {
-          return (
-            
-            Lottie
-          )
-        }
-            
-          
-        
-
-
+  return (
     <main className="min-h-screen bg-white text-slate-950">
+      <div className="flex justify-center mb-8">
+        <Lottie />
+      </div>
       <section className="mx-auto flex min-h-screen max-w-6xl flex-col justify-center px-6 py-12">
         <p className="mb-3 text-sm font-semibold uppercase tracking-wide text-emerald-700">
           The ultimate service hub
@@ -39,7 +20,7 @@ export default function Home() {
           The centre for you to connect with validated service providers.
         </p>
 
-        <div className="loading">
+        <div className="loading flex gap-4">
           <a
             href="/providers/apply"
             className="rounded-md bg-emerald-700 px-5 py-3 text-center font-semibold text-white"
@@ -56,8 +37,5 @@ export default function Home() {
         </div>
       </section>
     </main>
-    
-    
   );
 }
-  

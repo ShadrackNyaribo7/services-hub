@@ -1,22 +1,15 @@
-import {DotLottie} from "@lottiefiles/dotlottie-react";
-import "./rocket.json"
+import { DotLottie } from "@lottiefiles/dotlottie-react";
+import rocketAnimation from "../../public/rocket.json";
 
-const options = {
-    animationData: rocket.json,
-    autoplay: true,
+const Lottie = () => {
+  return (
+    <DotLottie
+      src={rocketAnimation}
+      autoplay
+      loop
+      style={{ height: 400, width: 400 }}
+    />
+  );
 };
 
-const style = {
-  height: 800,
-
-}
- 
-const Lottie = () => {
-    const animation = DotLottie(options,style);
-
-    animation;
-
-}
-
-
-export default DotLottie;
+export default Lottie;
