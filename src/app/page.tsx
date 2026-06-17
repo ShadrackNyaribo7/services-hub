@@ -4,9 +4,7 @@ import Lottie from "./component/lottie.jsx";
 export default function Home() {
   return (
     <main className="min-h-screen bg-white text-slate-950">
-      <div className="flex justify-center mb-8">
-        <Lottie />
-      </div>
+      <Lottie />
       <section className="mx-auto flex min-h-screen max-w-6xl flex-col justify-center px-6 py-12">
         <p className="mb-3 text-sm font-semibold uppercase tracking-wide text-emerald-700">
           The ultimate service hub
