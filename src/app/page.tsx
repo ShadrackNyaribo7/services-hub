@@ -1,12 +1,11 @@
 import "./globals.css"
-import Lottie from "./component/lottie.jsx";
+import LottieAnimation from "./component/lottie";
 
 export default function Home() {
   return (
     <main className="min-h-screen bg-gray-900 text-slate-50">
-    <div className="starry-bg">
-      <Lottie src="/rocket.json" top="0" left="0" width="400px" zIndex="0" />
-      <Lottie src="/services.lottie" top="0" left="0" width="100%" height="100vh" zIndex="1" animate={false} opacity="0.3" scale="1.5" />
+      <LottieAnimation src="/rocket.json" top="0" left="0" width="400px" zIndex={0} />
+      <LottieAnimation src="/services.lottie" top="0" left="0" width="100%" height="100vh" zIndex={1} animate={false} opacity="0.3" scale="1.5" />
       <section className="mx-auto flex min-h-screen max-w-6xl flex-col justify-center px-6 py-12">
         <p className="mb-3 text-sm font-semibold uppercase tracking-wide text-emerald-400">
           The ultimate service hub
@@ -36,7 +35,6 @@ export default function Home() {
           </a>
         </div>
       </section>
-      </div>
     </main>
   );
 }

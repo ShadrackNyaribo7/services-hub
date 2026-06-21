@@ -1,43 +1,32 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent } from "react";
 import { useParams } from "next/navigation";
+import { useBooking } from "@/hooks/useBooking";
 
 export default function BookProviderPage() {
   const params = useParams<{ id: string }>();
-  const [message, setMessage] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { createBooking, isLoading, error, success, reset } = useBooking();
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setIsSubmitting(true);
-    setMessage("");
 
     const formData = new FormData(event.currentTarget);
 
-    const response = await fetch("/api/bookings", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        providerProfileId: params.id,
-        clientName: formData.get("clientName"),
-        clientPhone: formData.get("clientPhone"),
-        county: formData.get("county"),
-        scheduledDate: formData.get("scheduledDate"),
-        notes: formData.get("notes"),
-      }),
-    });
+    const booking = {
+      providerProfileId: params.id,
+      clientName: formData.get("clientName") as string,
+      clientPhone: formData.get("clientPhone") as string,
+      county: formData.get("county") as string,
+      scheduledDate: formData.get("scheduledDate") as string,
+      notes: formData.get("notes") as string,
+    };
 
-    if (response.ok) {
+    const result = await createBooking(booking);
+
+    if (result) {
       event.currentTarget.reset();
-      setMessage("Booking request submitted. Await confirmation.");
-    } else {
-      setMessage("Could not submit booking. Please check your details.");
     }
-
-    setIsSubmitting(false);
   }
 
   return (
@@ -71,11 +60,18 @@ export default function BookProviderPage() {
             <textarea name="notes" rows={4} className="mt-2 w-full rounded-md border px-3 py-2" />
           </label>
 
-          <button disabled={isSubmitting} className="w-full rounded-md bg-emerald-700 px-5 py-3 font-semibold text-white disabled:bg-slate-400">
-            {isSubmitting ? "Submitting..." : "Request Booking"}
+          <button disabled={isLoading} className="w-full rounded-md bg-emerald-700 px-5 py-3 font-semibold text-white disabled:bg-slate-400">
+            {isLoading ? "Submitting..." : "Request Booking"}
           </button>
 
-          {message && <p className="text-sm font-medium text-emerald-700">{message}</p>}
+          {success && (
+            <p className="text-sm font-medium text-emerald-700">
+              Booking request submitted. Await confirmation.
+            </p>
+          )}
+          {error && (
+            <p className="text-sm font-medium text-red-700">{error}</p>
+          )}
         </form>
       </section>
     </main>

@@ -1,49 +1,40 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent } from "react";
 import "./global.css";
-
-
+import LottieAnimation from "@/app/component/lottie";
+import { useProviderApplication } from "@/hooks/useProviderApplication";
 
 export default function ProviderApplyPage() {
-  const [message, setMessage] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { submitApplication, isLoading, error, success, reset } = useProviderApplication();
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setIsSubmitting(true);
-    setMessage("");
 
     const formData = new FormData(event.currentTarget);
 
-    const response = await fetch("/api/provider-applications", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        fullName: formData.get("fullName"),
-        phone: formData.get("phone"),
-        county: formData.get("county"),
-        serviceCategory: formData.get("serviceCategory"),
-        policeClearanceNumber: formData.get("policeClearanceNumber"),
-        IDnumber: formData.get("ID number"),
-        Credentialvalidator: formData.get("Credential validator")
-      }),
-    });
+    const application = {
+      fullName: formData.get("fullName") as string,
+      phone: formData.get("phone") as string,
+      county: formData.get("county") as string,
+      serviceCategory: formData.get("serviceCategory") as string,
+      policeClearanceNumber: formData.get("policeClearanceNumber") as string,
+      IDnumber: formData.get("ID number") as string,
+      Credentialvalidator: formData.get("Credential validator") as string,
+    };
 
-    if (response.ok) {
+    const result = await submitApplication(application);
+
+    if (result) {
       event.currentTarget.reset();
-      setMessage("Application submitted successfully. Await admin review.");
-    } else {
-      setMessage("Something went wrong. Check the details and try again.");
+      // Success message will be handled by the success state
     }
-
-    setIsSubmitting(false);
   }
 
   return (
     <main className="min-h-screen bg-slate-50 px-6 py-10 text-slate-950">
+       <LottieAnimation src="/services.lottie" top="0" left="0" width="100%" height="100vh" zIndex={1} animate={false} opacity="0.3" scale="1.5" />
+      <section className="mx-auto max-w-5xl"></section>
       <section className="mx-auto max-w-2xl">
         <h1 className="text-3xl font-bold">Provider Application</h1>
         <p className="mt-2 text-slate-600">
@@ -92,11 +83,18 @@ export default function ProviderApplyPage() {
             <input name="Credentail validator" className="mt-2 w-full rounded-md border px-3 py-2" />
           </label>
 
-          <button disabled={isSubmitting} className="w-full rounded-md bg-emerald-700 px-5 py-3 font-semibold text-white disabled:bg-slate-400">
-            {isSubmitting ? "Submitting..." : "Submit Application"}
+          <button disabled={isLoading} className="w-full rounded-md bg-emerald-700 px-5 py-3 font-semibold text-white disabled:bg-slate-400">
+            {isLoading ? "Submitting..." : "Submit Application"}
           </button>
 
-          {message && <p className="text-sm font-medium text-emerald-700">{message}</p>}
+          {success && (
+            <p className="text-sm font-medium text-emerald-700">
+              Application submitted successfully. Await admin review.
+            </p>
+          )}
+          {error && (
+            <p className="text-sm font-medium text-red-700">{error}</p>
+          )}
         </form>
       </section>
     </main>
