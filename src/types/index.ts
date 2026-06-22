@@ -5,6 +5,43 @@ export interface ApiResponse<T> {
   status: number;
 }
 
+// Verification types
+export interface VerificationResult {
+  valid: boolean;
+  reason?: string;
+  provider?: string;
+  details?: any;
+}
+
+export interface DocumentVerificationRequest {
+  idNumber: string;
+  policeClearanceNumber: string;
+  credentialValidator: string;
+  serviceCategory?: string;
+}
+
+export interface DocumentVerificationResponse {
+  message: string;
+  verificationStatus: string;
+  verificationResults: {
+    idVerification: VerificationResult;
+    policeClearanceVerification: VerificationResult;
+    credentialVerification: VerificationResult;
+  };
+  providerProfile: any;
+}
+
+export interface VerificationStatusResponse {
+  verificationStatus: string;
+  adminNotes?: string;
+  hasDocuments: boolean;
+  documents: {
+    idNumber: string;
+    policeClearanceNumber: string;
+    credentialValidator: string;
+  };
+}
+
 // Provider Application types
 export interface ProviderApplication {
   fullName: string;

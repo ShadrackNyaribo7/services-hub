@@ -28,6 +28,8 @@ model ProviderProfile {
   county                  String
   serviceCategory         String
   policeClearanceNumber   String?
+  idNumber                String?
+  credentialValidator     String?
   verificationStatus      VerificationStatus   @default(PENDING)
   adminNotes              String?
   createdAt               DateTime             @default(now())

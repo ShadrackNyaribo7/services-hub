@@ -3,7 +3,10 @@ import {
   ProviderApplication,
   ProviderApplicationResponse,
   Booking,
-  BookingResponse
+  BookingResponse,
+  DocumentVerificationRequest,
+  DocumentVerificationResponse,
+  VerificationStatusResponse
 } from "@/types";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '';
@@ -61,8 +64,27 @@ export const bookingService = {
   },
 };
 
+// Document Verification Service
+export const documentVerificationService = {
+  async verifyDocuments(
+    documents: DocumentVerificationRequest
+  ): Promise<ApiResponse<DocumentVerificationResponse>> {
+    return apiCall<DocumentVerificationResponse>('/api/documents/verify', {
+      method: 'POST',
+      body: JSON.stringify(documents),
+    });
+  },
+
+  async getVerificationStatus(): Promise<ApiResponse<VerificationStatusResponse>> {
+    return apiCall<VerificationStatusResponse>('/api/documents/verify', {
+      method: 'GET',
+    });
+  },
+};
+
 // Export all services
 export const apiServices = {
   providerApplications: providerApplicationService,
   bookings: bookingService,
+  documentVerification: documentVerificationService,
 };
