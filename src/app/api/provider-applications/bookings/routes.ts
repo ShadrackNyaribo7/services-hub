@@ -15,7 +15,7 @@ export async function POST(request: Request) {
 
     const body = await request.json();
 
-    const { providerProfileId, clientName, clientPhone, county, scheduledDate, notes } = body;
+    const { providerProfileId, clientName, clientPhone, county, scheduledDate, notes, amount, mpesaPhoneNumber } = body;
 
     if (!providerProfileId || !clientName || !clientPhone || !county || !scheduledDate) {
       return NextResponse.json({ error: "Missing required fields." }, { status: 400 });
@@ -29,6 +29,10 @@ export async function POST(request: Request) {
         county,
         scheduledDate: new Date(scheduledDate),
         notes,
+        amount: amount || undefined,
+        mpesaPhoneNumber: mpesaPhoneNumber || undefined,
+        paymentMethod: amount && mpesaPhoneNumber ? "MPESA" : undefined,
+        paymentStatus: amount && mpesaPhoneNumber ? "PENDING" : "PENDING",
       },
     });
 

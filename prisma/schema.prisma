@@ -61,7 +61,16 @@ model Booking {
   notes             String?
   status            BookingStatus @default(REQUESTED)
   createdAt         DateTime      @default(now())
-
+  
+  // Payment fields
+  amount            Float?
+  paymentStatus     PaymentStatus @default(PENDING)
+  mpesaPhoneNumber  String?
+  mpesaTransactionId String?
+  mpesaReceiptNumber String?
+  paymentMethod     String?       @default("MPESA")
+  paymentCreatedAt  DateTime?
+  
   providerProfile ProviderProfile @relation(fields: [providerProfileId], references: [id])
 }
 
@@ -71,4 +80,11 @@ enum BookingStatus {
   REJECTED
   COMPLETED
   CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
 }

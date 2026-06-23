@@ -6,7 +6,9 @@ import {
   BookingResponse,
   DocumentVerificationRequest,
   DocumentVerificationResponse,
-  VerificationStatusResponse
+  VerificationStatusResponse,
+  MpesaPaymentRequest,
+  MpesaPaymentResponse
 } from "@/types";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '';
@@ -82,9 +84,28 @@ export const documentVerificationService = {
   },
 };
 
+// MPesa Payment Service
+export const mpesaPaymentService = {
+  async initiatePayment(
+    payment: MpesaPaymentRequest
+  ): Promise<ApiResponse<MpesaPaymentResponse>> {
+    return apiCall<MpesaPaymentResponse>('/api/mpesa/initiate', {
+      method: 'POST',
+      body: JSON.stringify(payment),
+    });
+  },
+
+  async checkPaymentStatus(bookingId: string): Promise<ApiResponse<any>> {
+    return apiCall<any>(`/api/mpesa/status?bookingId=${bookingId}`, {
+      method: 'GET',
+    });
+  },
+};
+
 // Export all services
 export const apiServices = {
   providerApplications: providerApplicationService,
   bookings: bookingService,
   documentVerification: documentVerificationService,
+  mpesaPayment: mpesaPaymentService,
 };

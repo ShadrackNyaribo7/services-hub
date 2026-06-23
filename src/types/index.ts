@@ -76,6 +76,9 @@ export interface Booking {
   county: string;
   scheduledDate: string;
   notes?: string;
+  // Payment fields
+  amount?: number;
+  mpesaPhoneNumber?: string;
 }
 
 export interface BookingResponse {
@@ -87,6 +90,13 @@ export interface BookingResponse {
     county: string;
     scheduledDate: Date;
     notes?: string;
+    // Payment fields
+    amount?: number;
+    paymentStatus?: string;
+    mpesaTransactionId?: string;
+    mpesaReceiptNumber?: string;
+    paymentMethod?: string;
+    paymentCreatedAt?: Date;
   };
 }
 
@@ -97,4 +107,37 @@ export interface Provider {
   serviceCategory: string;
   county: string;
   phone: string;
+}
+
+// MPesa types
+export interface MpesaPaymentRequest {
+  phoneNumber: string;
+  amount: number;
+  bookingId: string;
+  accountReference: string;
+}
+
+export interface MpesaPaymentResponse {
+  success: boolean;
+  message?: string;
+  checkoutRequestID?: string;
+  responseCode?: string;
+  responseDescription?: string;
+}
+
+export interface MpesaCallbackRequest {
+  Body: {
+    stkCallback: {
+      MerchantRequestID: string;
+      CheckoutRequestID: string;
+      ResultCode: number;
+      ResultDesc: string;
+      CallbackMetadata: {
+        Item: {
+          Name: string;
+          Value: string | number;
+        }[];
+      };
+    };
+  };
 }

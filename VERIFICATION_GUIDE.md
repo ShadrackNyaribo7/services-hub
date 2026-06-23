@@ -42,10 +42,10 @@ I've implemented a comprehensive document verification system with the following
 Copy `.env.example` to `.env` and configure the verification services you want to use:
 
 ```bash
-# Enable Kenya Government verification
+# Enable Kenya Government verification (using Korapay)
 ENABLE_KE_GOV_VERIFICATION="true"
-KE_GOV_API_URL="https://api.ecitizen.go.ke/v1"
-KE_GOV_API_KEY="your_api_key_here"
+KE_GOV_API_URL="https://api.korapay.com/merchant/api/v1"
+KE_GOV_API_KEY="your_korapay_api_key_here"
 
 # Enable Professional Body verification
 ENABLE_PROFESSIONAL_BODY_VERIFICATION="true"
@@ -122,14 +122,16 @@ function MyComponent() {
 
 ### 1. Kenya Government Integration
 
-The system can integrate with Kenya government APIs for:
-- **National ID verification**: Through eCitizen API
-- **Police Clearance Certificate**: Through DCI systems
+The system integrates with third-party providers for Kenya government services:
+- **National ID verification**: Through Korapay API (connects to government database)
+- **Police Clearance Certificate**: Manual verification required (no direct API available)
 
 **Requirements**:
-- Register as a developer on eCitizen portal
+- Register as a merchant on Korapay (korapay.com)
 - Obtain API credentials
 - Set `ENABLE_KE_GOV_VERIFICATION="true"`
+
+**Note**: eCitizen API does not provide direct ID verification services. We use Korapay as a verified third-party provider that connects to government databases.
 
 ### 2. Professional Body Integration
 

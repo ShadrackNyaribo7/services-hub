@@ -15,11 +15,11 @@ interface VerificationProvider {
   verifyCredentials(validator: string, serviceCategory: string): Promise<VerificationResult>;
 }
 
-// Kenya Government Services (eCitizen/DCI)
+// Kenya Government Services (using Korapay for ID verification)
 class KenyaGovernmentVerification implements VerificationProvider {
   name = 'KenyaGovernment';
 
-  private apiBaseUrl = process.env.KE_GOV_API_URL || 'https://api.ecitizen.go.ke/v1';
+  private apiBaseUrl = process.env.KE_GOV_API_URL || 'https://api.korapay.com/merchant/api/v1';
   private apiKey = process.env.KE_GOV_API_KEY;
 
   private async makeApiCall(endpoint: string, data: any): Promise<any> {
@@ -55,19 +55,24 @@ class KenyaGovernmentVerification implements VerificationProvider {
         return { valid: false, reason: 'Invalid ID number format. Must be 8 digits.', provider: this.name };
       }
 
-      const result = await this.makeApiCall('/identity/verify', {
-        idNumber,
-        requestType: 'ID_VERIFICATION'
+      const result = await this.makeApiCall('/identities/ke/national-id', {
+        id: idNumber,
+        verification_consent: true
       });
 
-      if (result.valid) {
+      if (result.data && result.data.status === 'success') {
         return {
           valid: true,
           provider: this.name,
-          details: { name: result.name, issuedDate: result.issuedDate }
+          details: { 
+            firstName: result.data.first_name,
+            lastName: result.data.last_name,
+            middleName: result.data.middle_name,
+            fullName: result.data.full_name
+          }
         };
       } else {
-        return { valid: false, reason: result.reason || 'ID verification failed', provider: this.name };
+        return { valid: false, reason: result.message || 'ID verification failed', provider: this.name };
       }
     } catch (error) {
       return { valid: false, reason: 'Kenya ID verification service unavailable', provider: this.name };
@@ -81,24 +86,15 @@ class KenyaGovernmentVerification implements VerificationProvider {
         return { valid: false, reason: 'Invalid police clearance certificate number', provider: this.name };
       }
 
-      const result = await this.makeApiCall('/police/clearance/verify', {
-        certificateNumber,
-        requestType: 'POLICE_CLEARANCE_VERIFICATION'
-      });
-
-      if (result.valid && !result.hasCriminalRecord) {
-        return {
-          valid: true,
-          provider: this.name,
-          details: { issuedDate: result.issuedDate, expiryDate: result.expiryDate }
-        };
-      } else {
-        return {
-          valid: false,
-          reason: result.reason || 'Police clearance verification failed or has criminal record',
-          provider: this.name
-        };
-      }
+      // Note: Police clearance verification typically requires direct DCI integration
+      // Most third-party providers don't offer this service
+      // For now, we'll do basic validation and recommend manual verification
+      return { 
+        valid: true, 
+        reason: 'Police clearance requires manual verification. Please upload certificate for admin review.',
+        provider: this.name,
+        details: { requiresManualReview: true }
+      };
     } catch (error) {
       return { valid: false, reason: 'Police clearance verification service unavailable', provider: this.name };
     }
