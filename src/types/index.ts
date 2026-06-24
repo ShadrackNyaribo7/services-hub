@@ -141,3 +141,77 @@ export interface MpesaCallbackRequest {
     };
   };
 }
+
+// Unified Fitness Platform (UFP) API Types
+export interface UFPAuthRequest {
+  email_id: string;
+  password: string;
+  company_uuid: string;
+}
+
+export interface UFPAuthResponse {
+  token: string;
+  refresh_token: string;
+  company_uuid: string;
+}
+
+export interface UFPClient {
+  id: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  phone: string;
+  status: string;
+  created_at: string;
+}
+
+export interface UFPCoach {
+  id: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  phone: string;
+  specializations: string[];
+  status: string;
+}
+
+export interface UFPAppointment {
+  id: string;
+  coach_id: string;
+  client_id: string;
+  start_time: string;
+  end_time: string;
+  status: string;
+  appointment_type_id: string;
+  notes?: string;
+}
+
+export interface UFPAppointmentType {
+  id: string;
+  name: string;
+  description: string;
+  duration: number;
+  price: number;
+}
+
+export interface UFPAppointmentRequest {
+  coach_id: string;
+  client_id: string;
+  start_time: string;
+  end_time: string;
+  appointment_type_id: string;
+  notes?: string;
+}
+
+export interface UFPBookingRequest {
+  appointment_id: string;
+  client_id: string;
+}
+
+export interface UFPBookingResponse {
+  id: string;
+  appointment_id: string;
+  client_id: string;
+  status: string;
+  booked_at: string;
+}
