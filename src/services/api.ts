@@ -16,11 +16,14 @@ import {
   UFPAppointmentType,
   UFPAppointmentRequest,
   UFPBookingRequest,
-  UFPBookingResponse
+  UFPBookingResponse,
+  UFPTenant,
+  UFPTenantWithCoaches
 } from "@/types";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '';
 const UFP_API_BASE_URL = process.env.UFP_API_BASE_URL || 'https://api.unifiedfitnessplatform.ai';
+const UFP_ENVIRONMENT = process.env.UFP_ENVIRONMENT || 'production';
 
 // Generic API handler with error handling
 async function apiCall<T>(
@@ -125,6 +128,7 @@ class UFPService {
     };
 
     try {
+      console.log(`UFP Authentication - Environment: ${UFP_ENVIRONMENT}, API: ${UFP_API_BASE_URL}`);
       const response = await fetch(`${UFP_API_BASE_URL}/token`, {
         method: 'POST',
         headers: {
@@ -138,17 +142,20 @@ class UFPService {
       if (response.ok && data.token) {
         this.token = data.token;
         this.tokenExpiry = Date.now() + (3600 * 1000); // 1 hour expiry
+        console.log('UFP Authentication successful');
         return {
           data: data,
           status: response.status,
         };
       } else {
+        console.error('UFP Authentication failed:', data.error);
         return {
           error: data.error || 'Authentication failed',
           status: response.status,
         };
       }
     } catch (error) {
+      console.error('UFP Authentication network error:', error);
       return {
         error: error instanceof Error ? error.message : 'Network error',
         status: 0,
@@ -245,6 +252,76 @@ class UFPService {
       method: 'POST',
       body: JSON.stringify(booking),
     });
+  }
+
+  // Get all tenants/locales
+  async getTenants(): Promise<ApiResponse<UFPTenant[]>> {
+    return this.ufpApiCall<UFPTenant[]>('/tenants');
+  }
+
+  // Get all coaches across all tenants
+  async getAllCoachesAcrossTenants(): Promise<ApiResponse<UFPTenantWithCoaches[]>> {
+    const tenantsResult = await this.getTenants();
+    
+    if (tenantsResult.error || !tenantsResult.data) {
+      return {
+        error: tenantsResult.error || 'Failed to fetch tenants',
+        status: tenantsResult.status || 500,
+      };
+    }
+
+    const tenants = tenantsResult.data;
+    const tenantsWithCoaches: UFPTenantWithCoaches[] = [];
+
+    // Fetch coaches for each tenant in parallel
+    const coachPromises = tenants.map(async (tenant) => {
+      const coachesResult = await this.getCoaches(tenant.id);
+      return {
+        tenant,
+        coaches: coachesResult.data || [],
+      };
+    });
+
+    const results = await Promise.all(coachPromises);
+
+    results.forEach(({ tenant, coaches }) => {
+      // Add tenant information to each coach
+      const coachesWithTenant = coaches.map(coach => ({
+        ...coach,
+        tenant_id: tenant.id,
+        locale: tenant.locale,
+      }));
+
+      tenantsWithCoaches.push({
+        ...tenant,
+        coaches: coachesWithTenant,
+      });
+    });
+
+    return {
+      data: tenantsWithCoaches,
+      status: 200,
+    };
+  }
+
+  // Get all coaches flattened across all tenants
+  async getAllCoachesFlattened(): Promise<ApiResponse<UFPCoach[]>> {
+    const result = await this.getAllCoachesAcrossTenants();
+    
+    if (result.error || !result.data) {
+      return result;
+    }
+
+    // Flatten all coaches from all tenants
+    const allCoaches: UFPCoach[] = [];
+    result.data.forEach(tenant => {
+      allCoaches.push(...tenant.coaches);
+    });
+
+    return {
+      data: allCoaches,
+      status: 200,
+    };
   }
 }
 

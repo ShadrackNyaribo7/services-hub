@@ -173,6 +173,8 @@ export interface UFPCoach {
   phone: string;
   specializations: string[];
   status: string;
+  tenant_id?: string;
+  locale?: string;
 }
 
 export interface UFPAppointment {
@@ -214,4 +216,17 @@ export interface UFPBookingResponse {
   client_id: string;
   status: string;
   booked_at: string;
+}
+
+export interface UFPTenant {
+  id: string;
+  name: string;
+  locale: string;
+  country?: string;
+  region?: string;
+  status: string;
+}
+
+export interface UFPTenantWithCoaches extends UFPTenant {
+  coaches: UFPCoach[];
 }

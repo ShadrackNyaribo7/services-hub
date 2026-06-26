@@ -32,6 +32,8 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+.env3party
+.env.local
 
 # vercel
 .vercel
@@ -41,8 +43,3 @@ yarn-error.log*
 next-env.d.ts
 
 /src/generated/prisma
-#C:\Users\PC\Documents\services-hub\web\src\app\admin\providers\page.tsx
-.env.local
-
-
-.env.3party

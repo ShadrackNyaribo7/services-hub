@@ -32,14 +32,14 @@ I've implemented a comprehensive document verification system with the following
 - **Hook**: Created `useDocumentVerification` hook for React components
 
 ### 5. Configuration
-- **File**: `.env.example`
+- **File**: `.env3party`
 - **Environment variables for all verification providers**
 
 ## How to Use the Verification System
 
 ### Step 1: Configure Environment Variables
 
-Copy `.env.example` to `.env` and configure the verification services you want to use:
+Copy `.env3party` to `.env.local` and configure the verification services you want to use:
 
 ```bash
 # Enable Kenya Government verification (using Korapay)
@@ -189,7 +189,7 @@ if (process.env.ENABLE_MY_CUSTOM_VERIFICATION === 'true') {
 }
 ```
 
-3. **Add environment variables** to `.env.example`:
+3. **Add environment variables** to `.env3party`:
 
 ```bash
 ENABLE_MY_CUSTOM_VERIFICATION="false"
@@ -240,7 +240,7 @@ You can test the verification flow using the provided frontend form in `src/app/
 ## Next Steps
 
 1. **Obtain API credentials** from your chosen verification providers
-2. **Configure environment variables** with your API keys
+2. **Copy `.env3party` to `.env.local` and configure environment variables** with your API keys
 3. **Run database migrations** to update the schema
 4. **Test the verification flow** with real documents
 5. **Monitor verification results** and adjust validation rules
