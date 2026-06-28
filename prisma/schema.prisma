@@ -13,29 +13,47 @@ datasource db {
 }
 
 model User {
-  id        String   @id @default(cuid())
-  name      String
-  phone     String   @unique
-  role      UserRole @default(CLIENT)
-  createdAt DateTime @default(now())
-
+  id              String           @id @default(cuid())
+  name            String
+  phone           String           @unique
+  role            UserRole         @default(CLIENT)
+  createdAt       DateTime         @default(now())
   providerProfile ProviderProfile?
 }
 
 model ProviderProfile {
-  id                      String               @id @default(cuid())
-  userId                  String               @unique
-  county                  String
-  serviceCategory         String
-  policeClearanceNumber   String?
-  idNumber                String?
-  credentialValidator     String?
-  verificationStatus      VerificationStatus   @default(PENDING)
-  adminNotes              String?
-  createdAt               DateTime             @default(now())
-  bookings Booking[]
+  id                    String             @id @default(cuid())
+  userId                String             @unique
+  county                String
+  serviceCategory       String
+  policeClearanceNumber String?
+  idNumber              String?
+  credentialValidator   String?
+  verificationStatus    VerificationStatus @default(PENDING)
+  adminNotes            String?
+  createdAt             DateTime           @default(now())
+  bookings              Booking[]
+  user                  User               @relation(fields: [userId], references: [id])
+}
 
-  user User @relation(fields: [userId], references: [id])
+model Booking {
+  id                 String          @id @default(cuid())
+  providerProfileId  String
+  clientName         String
+  clientPhone        String
+  county             String
+  scheduledDate      DateTime
+  notes              String?
+  status             BookingStatus   @default(REQUESTED)
+  createdAt          DateTime        @default(now())
+  amount             Float?
+  paymentStatus      PaymentStatus   @default(PENDING)
+  mpesaPhoneNumber   String?
+  mpesaTransactionId String?
+  mpesaReceiptNumber String?
+  paymentMethod      String?         @default("MPESA")
+  paymentCreatedAt   DateTime?
+  providerProfile    ProviderProfile @relation(fields: [providerProfileId], references: [id])
 }
 
 enum UserRole {
@@ -49,29 +67,6 @@ enum VerificationStatus {
   APPROVED
   REJECTED
   SUSPENDED
-}
-
-model Booking {
-  id                String        @id @default(cuid())
-  providerProfileId String
-  clientName        String
-  clientPhone       String
-  county            String
-  scheduledDate     DateTime
-  notes             String?
-  status            BookingStatus @default(REQUESTED)
-  createdAt         DateTime      @default(now())
-  
-  // Payment fields
-  amount            Float?
-  paymentStatus     PaymentStatus @default(PENDING)
-  mpesaPhoneNumber  String?
-  mpesaTransactionId String?
-  mpesaReceiptNumber String?
-  paymentMethod     String?       @default("MPESA")
-  paymentCreatedAt  DateTime?
-  
-  providerProfile ProviderProfile @relation(fields: [providerProfileId], references: [id])
 }
 
 enum BookingStatus {
