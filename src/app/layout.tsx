@@ -7,6 +7,7 @@
 import { ClerkProvider } from "@clerk/nextjs";
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import Image from "next/image";
 import "./globals.css";
 
 
@@ -38,7 +39,47 @@ export default function RootLayout({
         lang="en"
         className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
       >
-        <body className="min-h-full flex flex-col">{children}</body>
+        <body className="min-h-full flex flex-col">
+          {children}
+          <footer className="bg-gray-800 text-slate-300 py-8 mt-auto">
+            <div className="mx-auto max-w-6xl px-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <div>
+                  <div className="mb-4">
+                    <Image 
+                      src="/Creative Idea.svg" 
+                      alt="SERVICE-HUB Logo" 
+                      width={150} 
+                      height={50}
+                      className="h-12 w-auto"
+                    />
+                  </div>
+                  <p className="text-sm">Your trusted platform for connecting with verified service providers across Kenya.</p>
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-white mb-4">Quick Links</h3>
+                  <ul className="space-y-2 text-sm">
+                    <li><a href="/services" className="hover:text-emerald-400 transition">Find Services</a></li>
+                    <li><a href="/providers/apply" className="hover:text-emerald-400 transition">Become a Provider</a></li>
+                    <li><a href="/admin/bookings" className="hover:text-emerald-400 transition">Admin Dashboard</a></li>
+                  </ul>
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-white mb-4">Legal</h3>
+                  <ul className="space-y-2 text-sm">
+                    <li><a href="/privacy" className="hover:text-emerald-400 transition">Privacy Policy</a></li>
+                    <li><a href="/refund" className="hover:text-emerald-400 transition">Refund Policy</a></li>
+                    <li><a href="/terms" className="hover:text-emerald-400 transition">Terms of Service</a></li>
+                  </ul>
+                </div>
+              </div>
+              <div className="border-t border-gray-700 mt-8 pt-6 text-center text-sm">
+                <p>&copy; {new Date().getFullYear()} SERVICE-HUB. All rights reserved.</p>
+                <p className="mt-2 text-slate-400">Contact: stilespulsar77@gmail.com</p>
+              </div>
+            </div>
+          </footer>
+        </body>
       </html>
     </ClerkProvider>
   );

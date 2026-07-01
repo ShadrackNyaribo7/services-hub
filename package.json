@@ -11,10 +11,11 @@
   "dependencies": {
     "@clerk/nextjs": "^7.4.3",
     "@lottiefiles/dotlottie-react": "^0.19.4",
-    "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "^7.8.0",
     "axios": "^1.18.1",
+    "dotenv": "^17.4.2",
     "lottie-react": "^2.4.1",
+    "lottie-web": "^5.13.0",
     "next": "16.2.7",
     "pg": "^8.21.0",
     "prisma": "^7.8.0",

@@ -2,12 +2,18 @@ import { prisma } from "@/lib/prisma";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+export const dynamic = 'force-dynamic';
+
 export default async function ProviderDetailPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+
+  if (!id) {
+    notFound();
+  }
 
   const provider = await prisma.providerProfile.findUnique({
     where: { id },

@@ -57,8 +57,12 @@ class MpesaService {
       this.accessToken = response.data.access_token;
       this.tokenExpiry = Date.now() + (response.data.expires_in - 60) * 1000; // Refresh 1 minute before expiry
 
+      if (!this.accessToken) {
+        throw new Error('Failed to obtain access token from MPesa');
+      }
+
       return this.accessToken;
-    } catch ( error) {
+    } catch (error) {
       console.error('Error getting MPesa access token:', error);
       throw new Error('Failed to authenticate with MPesa');
     }

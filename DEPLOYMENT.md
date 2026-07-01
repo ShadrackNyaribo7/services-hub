@@ -1,5 +1,49 @@
 # Deployment Guide
 
+## Fixing "invalid length of startup packet" Error
+
+The "invalid length of startup packet" error in Railway logs indicates a PostgreSQL connection protocol mismatch. Here's how to fix it:
+
+### Root Cause
+The error was caused by using the `@prisma/adapter-pg` package with an incompatible configuration that was sending invalid connection data to Railway PostgreSQL.
+
+### Solution Applied
+
+**1. Removed incompatible Prisma adapter:**
+- Removed `@prisma/adapter-pg` dependency from package.json
+- Switched to standard Prisma Client configuration
+
+**2. Updated Prisma connection:**
+- Changed from custom adapter to standard datasource configuration
+- Simplified connection handling in <ref_file file="C:\Users\PC\Documents\services-hub\web\src\lib\prisma.ts" />
+
+**3. SSL Configuration:**
+- Keep `?sslmode=require` in your Railway DATABASE_URL
+- This is still required for Railway PostgreSQL connections
+
+### Steps to Apply:
+
+1. **Ensure DATABASE_URL has SSL mode:**
+   ```
+   DATABASE_URL="postgresql://postgres:password@host:port/database?sslmode=require"
+   ```
+
+2. **Redeploy your Railway service** - The new configuration will be applied automatically
+
+3. **Verify the fix** - Check Railway logs for the error to disappear
+
+### What Changed:
+
+- **Removed:** `@prisma/adapter-pg` dependency (causing protocol mismatch)
+- **Updated:** Prisma client to use standard connection method
+- **Kept:** SSL mode requirement for Railway PostgreSQL
+
+### Verification:
+
+After redeploying, the "invalid length of startup packet" error should be resolved. The application will connect using the standard PostgreSQL protocol which Railway expects.
+
+---
+
 ## Database Migration Complete ✅
 
 Your database has been successfully migrated from Docker (local) to Railway (cloud).
@@ -29,7 +73,7 @@ Your database has been successfully migrated from Docker (local) to Railway (clo
 **To use Railway (Production):**
 ```bash
 # .env file should contain:
-DATABASE_URL="postgresql://postgres:qwzCPPuBbLcPxsfzfnpPBFnLldTXIpcy@reseau.proxy.rlwy.net:28966/railway"
+DATABASE_URL="postgresql://postgres:qwzCPPuBbLcPxsfzfnpPBFnLldTXIpcy@reseau.proxy.rlwy.net:28966/railway?sslmode=require"
 ```
 
 **To use Docker (Local Development):**
@@ -62,6 +106,8 @@ Then in Railway:
 
 **Environment Variables in Railway:**
 - Add `DATABASE_URL` with your Railway connection string
+- **Important:** Append `?sslmode=require` to your DATABASE_URL in Railway
+- Example: `postgresql://postgres:password@host:port/database?sslmode=require`
 - Railway will automatically use this
 
 #### Option 2: Deploy to Vercel
@@ -108,12 +154,23 @@ npx prisma generate
 4. **Backups are handled by Railway** automatically
 5. **SSL is recommended** for production connections
 
+### Health Check
+
+A health check endpoint is available at `/api/health` to monitor:
+- Application status
+- Database connectivity
+- Service availability
+
+This endpoint is automatically used by Railway for health monitoring as configured in `railway.json`.
+
 ### Troubleshooting
 
 **Connection Issues:**
 - Verify DATABASE_URL is correct
 - Check if Railway database is active
-- Try adding `?sslmode=require` to connection string
+- Ensure `?sslmode=require` is appended to DATABASE_URL
+- Check Railway logs for specific error messages
+- Test health check endpoint: `https://your-app.railway.app/api/health`
 
 **Migration Issues:**
 ```bash
@@ -133,7 +190,7 @@ npm run build
 - ✅ Database credentials are in environment variables
 - ✅ `.env` files are in `.gitignore`
 - ✅ Railway connection string is secure
-- ✅ SSL connection available (add `?sslmode=require` if needed)
+- ✅ SSL connection enabled with `?sslmode=require` (required for Railway)
 - ⚠️ Consider rotating database password periodically
 - ⚠️ Enable Railway's database backups
 

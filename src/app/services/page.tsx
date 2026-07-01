@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import Link from "next/link";
 import LottieAnimation from "../component/lottie";
+import Image from "next/image";
 
 export default async function ServicesPage() {
   const providers = await prisma.providerProfile.findMany({
@@ -21,12 +22,21 @@ export default async function ServicesPage() {
     <main className="min-h-screen bg-grey px-6 py-10 text-slate-950">
       <LottieAnimation src="/services.lottie" top="0" left="0" width="100%" height="100vh" zIndex={1} animate={false} opacity="0.3" scale="1.5" />
       <section className="mx-auto max-w-5xl">
-        <h1 className="text-3xl font-bold  text-emerald-400">Find Verified Providers</h1>
+             <header className="mx-auto max-w-6xl px-6 py-8">
+               <Image 
+                 src="/Creative Idea.svg" 
+                 alt="SERVICE-HUB Logo" 
+                 width={200} 
+                 height={60}
+                 className="h-16 w-auto"
+               />
+             </header>
+              <h1 className="text-3xl font-bold  text-emerald-400">Find Verified Providers</h1>
 
         <div className="mt-6 mb-8 rounded-md border border-emerald-200 bg-emerald-50 p-4">
           <h2 className="text-lg font-semibold text-emerald-800">Professional Fitness Trainers</h2>
           <p className="mt-1 text-emerald-700">
-            Book certified fitness trainers through our Unified Fitness Platform integration
+            Book certified fitness trainers through our Unified Fitness Platform 
           </p>
           <Link
             href="/services/ufp"
@@ -36,7 +46,7 @@ export default async function ServicesPage() {
           </Link>
         </div>
 
-        <h2 className="text-2xl font-bold text-slate-800">Local Service Providers</h2>
+        <h2 className="text-3xl font-bold text-emerald-400 hover:bg-emerald-800 ">Local Service Providers</h2>
 
         <div className="mt-8 grid gap-4 md:grid-cols-2">
           {providers.map((provider) => (

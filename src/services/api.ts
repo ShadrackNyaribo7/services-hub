@@ -309,7 +309,10 @@ class UFPService {
     const result = await this.getAllCoachesAcrossTenants();
     
     if (result.error || !result.data) {
-      return result;
+      return {
+        error: result.error || 'Failed to fetch coaches',
+        status: result.status || 500,
+      };
     }
 
     // Flatten all coaches from all tenants
