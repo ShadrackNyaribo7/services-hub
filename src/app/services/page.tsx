@@ -3,6 +3,8 @@ import Link from "next/link";
 import LottieAnimation from "../component/lottie";
 import Image from "next/image";
 
+export const dynamic = "force-dynamic";
+
 export default async function ServicesPage() {
   const providers = await prisma.providerProfile.findMany({
     where: {
