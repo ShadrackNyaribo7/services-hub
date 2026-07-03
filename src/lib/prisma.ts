@@ -1,5 +1,6 @@
 import { PrismaClient } from "@/generated/prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
+import { Pool } from "pg";
 
 const globalForPrisma = globalThis as unknown as {
   prisma?: PrismaClient;
@@ -21,8 +22,11 @@ function getPrisma(): PrismaClient {
       console.log("Database URL loaded:", connectionString.replace(/:[^:@]+@/, ":****@"));
     }
 
+    const pool = new Pool({ connectionString });
+    const adapter = new PrismaPg(pool);
+
     prismaInstance = new PrismaClient({
-      adapter: new PrismaPg({ connectionString }),
+      adapter,
       log: process.env.NODE_ENV === "production" ? ["error"] : ["query", "error", "warn"],
     });
 
@@ -39,3 +43,4 @@ export const prisma = new Proxy({} as PrismaClient, {
     return client[prop as keyof PrismaClient];
   },
 });
+
