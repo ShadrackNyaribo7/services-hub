@@ -39,7 +39,7 @@ I've implemented a comprehensive document verification system with the following
 
 ### Step 1: Configure Environment Variables
 
-Copy `.env.3party` to `.env.local` and configure the verification services you want to use:
+Configure the verification services you want to use in `.env`:
 
 ```bash
 # Enable Kenya Government verification (using Korapay)
@@ -240,7 +240,7 @@ You can test the verification flow using the provided frontend form in `src/app/
 ## Next Steps
 
 1. **Obtain API credentials** from your chosen verification providers
-2. **Copy `.env.3party` to `.env.local` and configure environment variables** with your API keys
+2. **Configure environment variables in `.env`** with your API keys
 3. **Run database migrations** to update the schema
 4. **Test the verification flow** with real documents
 5. **Monitor verification results** and adjust validation rules

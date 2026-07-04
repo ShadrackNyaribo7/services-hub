@@ -14,7 +14,7 @@ This guide will help you integrate the Unified Fitness Platform API into your se
    - **Production**: https://api.unifiedfitnessplatform.ai (for live production use)
 
 3. **Update Environment Variables**: 
-   Copy `.env.3party` to `.env.local` and configure with your credentials:
+   Configure your credentials in `.env`:
    ```bash
    # UFP API Configuration
    # Choose between staging and production environments
@@ -82,7 +82,7 @@ Visit `http://localhost:3000/services/ufp` to test the trainer listing.
 
 ### Files Created/Modified:
 
-1. **Environment Configuration** (`.env.local` and `.env.3party`)
+1. **Environment Configuration** (`.env`)
    - Added UFP API credentials
    - Added multi-tenant configuration options
    - Preserved existing Clerk authentication
@@ -120,7 +120,7 @@ Visit `http://localhost:3000/services/ufp` to test the trainer listing.
 
 The UFP service automatically handles JWT authentication:
 
-1. **First Request**: Authenticates with UFP using credentials from `.env.local` (copied from `.env.3party`)
+1. **First Request**: Authenticates with UFP using credentials from `.env`
 2. **Token Storage**: Stores JWT token with 1-hour expiry
 3. **Auto Refresh**: Automatically re-authenticates when token expires
 4. **API Calls**: Includes Bearer token in all subsequent requests
@@ -244,7 +244,7 @@ The booking flow can be extended to integrate with your existing MPesa payment s
    - Ensure environment-specific credentials are used for each environment
 
 2. **Security**: 
-   - Never commit `.env.local` or `.env.3party` to version control
+   - Never commit `.env` to version control
    - Use environment-specific variables for production
    - Implement rate limiting for API calls
    - Rotate credentials periodically
@@ -263,7 +263,7 @@ The booking flow can be extended to integrate with your existing MPesa payment s
 ## Step 11: Troubleshooting
 
 ### Issue: "Authentication failed"
-- **Solution**: Verify UFP credentials in `.env.local` (copied from `.env.3party`)
+- **Solution**: Verify UFP credentials in `.env`
 - Check that email, password, and company UUID are correct
 
 ### Issue: "No trainers available"
@@ -297,7 +297,7 @@ The booking flow can be extended to integrate with your existing MPesa payment s
 
 1. **Get UFP Credentials**: Contact Unified Fitness Platform for API access (separate credentials for staging and production)
 2. **Choose Environment**: Decide whether to start with staging for testing or go directly to production
-3. **Update Environment**: Add your credentials to `.env.local` with the correct API URL for your chosen environment
+3. **Update Environment**: Add your credentials to `.env` with the correct API URL for your chosen environment
 4. **Test Integration**: Run the app and test the booking flow
 5. **Verify Environment**: Check logs to confirm you're connecting to the intended environment
 6. **Customize**: Adjust the UI and flow to match your needs

@@ -203,14 +203,13 @@ Your database has been successfully migrated from Docker (local) to Railway (clo
 
 **Local Database (Development):**
 - **Provider:** Docker PostgreSQL  
-- **Connection:** Available in `.env.local` (commented out)
+- **Connection:** Available in `.env` (commented out)
 - **Container:** services-hub-db-5433
 - **Port:** 5433
 
 ### Environment Files
 
 - **`.env`** - Production database (Railway) - ✅ Currently active
-- **`.env.local`** - Local development database (Docker) - Commented out
 - **`.env.example`** - Template for reference
 
 ### Switching Between Databases
@@ -224,7 +223,7 @@ DATABASE_URL="postgresql://postgres:qwzCPPuBbLcPxsfzfnpPBFnLldTXIpcy@reseau.prox
 **To use Docker (Local Development):**
 ```bash
 # Comment out Railway URL in .env
-# Uncomment Docker URL in .env.local
+# Uncomment Docker URL in .env
 DATABASE_URL="postgresql://postgres:postgres@localhost:5433/trusted_services_ke"
 ```
 
