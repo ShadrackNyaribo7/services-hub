@@ -17,25 +17,27 @@ jest.mock('axios');
 const mockedAxios = axios as jest.Mocked<typeof axios>;
 
 // Mock Prisma to avoid database operations
+const mockPrismaBooking = {
+  findUnique: jest.fn() as jest.MockedFunction<any>,
+  update: jest.fn() as jest.MockedFunction<any>,
+  findFirst: jest.fn() as jest.MockedFunction<any>,
+};
+
 jest.mock('@/lib/prisma', () => ({
   prisma: {
-    booking: {
-      findUnique: jest.fn(),
-      update: jest.fn(),
-      findFirst: jest.fn(),
-    },
+    booking: mockPrismaBooking,
   },
 }));
 
 // Mock Clerk auth
+const mockAuth = jest.fn() as any;
 jest.mock('@clerk/nextjs/server', () => ({
-  auth: jest.fn(),
+  auth: mockAuth,
 }));
 
 // Import after mocking
 import { mpesaService } from '@/lib/mpesa/mpesaService';
 import { prisma } from '@/lib/prisma';
-import { auth } from '@clerk/nextjs/server';
 
 describe('MPesa Integration Test Suite', () => {
   
@@ -54,10 +56,10 @@ describe('MPesa Integration Test Suite', () => {
     jest.clearAllMocks();
     mockedAxios.get.mockReset();
     mockedAxios.post.mockReset();
-    (prisma.booking.findUnique as jest.Mock).mockReset();
-    (prisma.booking.update as jest.Mock).mockReset();
-    (prisma.booking.findFirst as jest.Mock).mockReset();
-    (auth as jest.Mock).mockReset();
+    mockPrismaBooking.findUnique.mockReset();
+    mockPrismaBooking.update.mockReset();
+    mockPrismaBooking.findFirst.mockReset();
+    mockAuth.mockReset();
     
     // Reset token cache in mpesaService
     (mpesaService as any).accessToken = null;
@@ -353,7 +355,7 @@ describe('MPesa Integration Test Suite', () => {
 
   describe('API Route - Initiate Payment', () => {
     test('should require authentication', async () => {
-      (auth as jest.Mock).mockResolvedValueOnce({ userId: null });
+      mockAuth.mockResolvedValueOnce({ userId: null });
 
       const request = new Request('http://localhost:3000/api/mpesa/initiate', {
         method: 'POST',
@@ -373,7 +375,7 @@ describe('MPesa Integration Test Suite', () => {
     });
 
     test('should validate required fields', async () => {
-      (auth as jest.Mock).mockResolvedValueOnce({ userId: 'user123' });
+      mockAuth.mockResolvedValueOnce({ userId: 'user123' });
 
       const request = new Request('http://localhost:3000/api/mpesa/initiate', {
         method: 'POST',
@@ -392,7 +394,7 @@ describe('MPesa Integration Test Suite', () => {
     });
 
     test('should validate phone number format', async () => {
-      (auth as jest.Mock).mockResolvedValueOnce({ userId: 'user123' });
+      mockAuth.mockResolvedValueOnce({ userId: 'user123' });
 
       const request = new Request('http://localhost:3000/api/mpesa/initiate', {
         method: 'POST',
@@ -412,7 +414,7 @@ describe('MPesa Integration Test Suite', () => {
     });
 
     test('should validate amount is positive', async () => {
-      (auth as jest.Mock).mockResolvedValueOnce({ userId: 'user123' });
+      mockAuth.mockResolvedValueOnce({ userId: 'user123' });
 
       const request = new Request('http://localhost:3000/api/mpesa/initiate', {
         method: 'POST',
@@ -432,8 +434,8 @@ describe('MPesa Integration Test Suite', () => {
     });
 
     test('should check if booking exists', async () => {
-      (auth as jest.Mock).mockResolvedValueOnce({ userId: 'user123' });
-      (prisma.booking.findUnique as jest.Mock).mockResolvedValueOnce(null);
+      mockAuth.mockResolvedValueOnce({ userId: 'user123' });
+      mockPrismaBooking.findUnique.mockResolvedValueOnce(null);
 
       const request = new Request('http://localhost:3000/api/mpesa/initiate', {
         method: 'POST',
@@ -475,7 +477,7 @@ describe('MPesa Integration Test Suite', () => {
         },
       };
 
-      (prisma.booking.update as jest.Mock).mockResolvedValueOnce({});
+      mockPrismaBooking.update.mockResolvedValueOnce({});
 
       const request = new Request('http://localhost:3000/api/mpesa/callback', {
         method: 'POST',
@@ -488,7 +490,7 @@ describe('MPesa Integration Test Suite', () => {
 
       expect(response.status).toBe(200);
       expect(data.ResultCode).toBe(0);
-      expect(prisma.booking.update).toHaveBeenCalledWith(
+      expect(mockPrismaBooking.update).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { id: 'booking123' },
           data: expect.objectContaining({
@@ -516,7 +518,7 @@ describe('MPesa Integration Test Suite', () => {
         },
       };
 
-      (prisma.booking.update as jest.Mock).mockResolvedValueOnce({});
+      mockPrismaBooking.update.mockResolvedValueOnce({});
 
       const request = new Request('http://localhost:3000/api/mpesa/callback', {
         method: 'POST',
@@ -529,7 +531,7 @@ describe('MPesa Integration Test Suite', () => {
 
       expect(response.status).toBe(200);
       expect(data.ResultCode).toBe(0);
-      expect(prisma.booking.update).toHaveBeenCalledWith(
+      expect(mockPrismaBooking.update).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { id: 'booking123' },
           data: expect.objectContaining({
@@ -555,7 +557,7 @@ describe('MPesa Integration Test Suite', () => {
         },
       };
 
-      (prisma.booking.findFirst as jest.Mock).mockResolvedValueOnce(null);
+      mockPrismaBooking.findFirst.mockResolvedValueOnce(null);
 
       const request = new Request('http://localhost:3000/api/mpesa/callback', {
         method: 'POST',
@@ -573,7 +575,7 @@ describe('MPesa Integration Test Suite', () => {
 
   describe('API Route - Payment Status Check', () => {
     test('should require authentication', async () => {
-      (auth as jest.Mock).mockResolvedValueOnce({ userId: null });
+      mockAuth.mockResolvedValueOnce({ userId: null });
 
       const request = new Request('http://localhost:3000/api/mpesa/status?bookingId=booking123', {
         method: 'GET',
@@ -588,7 +590,7 @@ describe('MPesa Integration Test Suite', () => {
     });
 
     test('should require booking ID parameter', async () => {
-      (auth as jest.Mock).mockResolvedValueOnce({ userId: 'user123' });
+      mockAuth.mockResolvedValueOnce({ userId: 'user123' });
 
       const request = new Request('http://localhost:3000/api/mpesa/status', {
         method: 'GET',
@@ -603,8 +605,8 @@ describe('MPesa Integration Test Suite', () => {
     });
 
     test('should return payment status for valid booking', async () => {
-      (auth as jest.Mock).mockResolvedValueOnce({ userId: 'user123' });
-      (prisma.booking.findUnique as jest.Mock).mockResolvedValueOnce({
+      mockAuth.mockResolvedValueOnce({ userId: 'user123' });
+      mockPrismaBooking.findUnique.mockResolvedValueOnce({
         id: 'booking123',
         paymentStatus: 'COMPLETED',
         amount: 100,
@@ -629,8 +631,8 @@ describe('MPesa Integration Test Suite', () => {
     });
 
     test('should handle non-existent booking', async () => {
-      (auth as jest.Mock).mockResolvedValueOnce({ userId: 'user123' });
-      (prisma.booking.findUnique as jest.Mock).mockResolvedValueOnce(null);
+      mockAuth.mockResolvedValueOnce({ userId: 'user123' });
+      mockPrismaBooking.findUnique.mockResolvedValueOnce(null);
 
       const request = new Request('http://localhost:3000/api/mpesa/status?bookingId=nonexistent', {
         method: 'GET',
@@ -752,7 +754,7 @@ describe('MPesa Integration Test Suite', () => {
     });
 
     test('should handle zero amount validation', async () => {
-      (auth as jest.Mock).mockResolvedValueOnce({ userId: 'user123' });
+      mockAuth.mockResolvedValueOnce({ userId: 'user123' });
 
       const request = new Request('http://localhost:3000/api/mpesa/initiate', {
         method: 'POST',

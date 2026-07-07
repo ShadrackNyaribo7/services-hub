@@ -23,7 +23,7 @@ export function useKoraVerification() {
 
       setSuccess(true);
       setVerificationData(response.data);
-      return response;
+      return response.data || null;
     } catch (err) {
       setError(err instanceof Error ? err.message : "An unexpected error occurred");
       return null;
