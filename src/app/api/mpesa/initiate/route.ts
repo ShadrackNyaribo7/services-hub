@@ -18,7 +18,7 @@ export async function POST(request: Request) {
     const { phoneNumber, amount, bookingId } = body;
 
     // Validate required fields
-    if (!phoneNumber || !amount || !bookingId) {
+    if (!phoneNumber || amount === undefined || amount === null || !bookingId) {
       return NextResponse.json(
         { error: "Missing required fields: phoneNumber, amount, bookingId" },
         { status: 400 }
@@ -34,7 +34,7 @@ export async function POST(request: Request) {
     }
 
     // Validate amount
-    if (amount <= 0) {
+    if (typeof amount !== 'number' || amount <= 0) {
       return NextResponse.json(
         { error: "Amount must be greater than 0" },
         { status: 400 }

@@ -18,7 +18,11 @@ import {
   UFPBookingRequest,
   UFPBookingResponse,
   UFPTenant,
-  UFPTenantWithCoaches
+  UFPTenantWithCoaches,
+  KoraVerificationRequest,
+  KoraVerificationResponse,
+  KoraQueryRequest,
+  KoraQueryResponse
 } from "@/types";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '';
@@ -109,6 +113,26 @@ export const mpesaPaymentService = {
 
   async checkPaymentStatus(bookingId: string): Promise<ApiResponse<any>> {
     return apiCall<any>(`/api/mpesa/status?bookingId=${bookingId}`, {
+      method: 'GET',
+    });
+  },
+};
+
+// Kora Verification Service
+export const koraVerificationService = {
+  async verifyIdentity(
+    verification: KoraVerificationRequest
+  ): Promise<ApiResponse<KoraVerificationResponse>> {
+    return apiCall<KoraVerificationResponse>('/api/kora/verify', {
+      method: 'POST',
+      body: JSON.stringify(verification),
+    });
+  },
+
+  async queryVerification(
+    query: KoraQueryRequest
+  ): Promise<ApiResponse<KoraQueryResponse>> {
+    return apiCall<KoraQueryResponse>(`/api/kora/query?reference=${query.reference}`, {
       method: 'GET',
     });
   },
@@ -336,5 +360,6 @@ export const apiServices = {
   bookings: bookingService,
   documentVerification: documentVerificationService,
   mpesaPayment: mpesaPaymentService,
+  koraVerification: koraVerificationService,
   ufp: ufpService,
 };

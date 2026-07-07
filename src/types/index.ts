@@ -230,3 +230,48 @@ export interface UFPTenant {
 export interface UFPTenantWithCoaches extends UFPTenant {
   coaches: UFPCoach[];
 }
+
+// Kora Pay Verification Types
+export interface KoraVerificationRequest {
+  idNumber: string;
+  idType: 'national_id' | 'passport';
+  firstName?: string;
+  lastName?: string;
+  dateOfBirth?: string;
+  selfieImage?: string;
+  consent?: boolean;
+}
+
+export interface KoraVerificationResponse {
+  success: boolean;
+  data?: {
+    reference: string;
+    id: string;
+    id_type: string;
+    first_name: string;
+    last_name: string;
+    middle_name?: string;
+    full_name: string;
+    date_of_birth: string;
+    nationality: string;
+    gender: string;
+    image?: string;
+  };
+  validationResults?: {
+    nameMatch: boolean;
+    dobMatch: boolean;
+    selfieMatch?: boolean;
+    selfieConfidence?: number;
+  };
+  error?: string;
+}
+
+export interface KoraQueryRequest {
+  reference: string;
+}
+
+export interface KoraQueryResponse {
+  success: boolean;
+  data?: KoraVerificationResponse['data'];
+  error?: string;
+}

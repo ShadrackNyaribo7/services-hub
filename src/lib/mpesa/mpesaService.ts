@@ -193,8 +193,9 @@ class MpesaService {
 
   validatePhoneNumber(phoneNumber: string): boolean {
     const cleaned = this.formatPhoneNumber(phoneNumber);
-    // Kenyan phone numbers: 254 followed by 7-9 digits (10 digits total)
-    return /^254[0-9]{9}$/.test(cleaned);
+    // Kenyan phone numbers: 254 followed by valid mobile prefix (7, 1, or 5) and 8 more digits
+    // Safaricom: 2547XXXXXXXX, Telkom: 2541XXXXXXXX, Airtel: 2545XXXXXXXX
+    return /^254[715][0-9]{8}$/.test(cleaned);
   }
 }
 
