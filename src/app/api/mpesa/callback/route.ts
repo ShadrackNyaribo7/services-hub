@@ -63,7 +63,7 @@ export async function POST(request: Request) {
     }
 
     // Update booking based on payment result
-    const paymentStatus = ResultCode === '0' ? 'COMPLETED' : 'FAILED';
+    const paymentStatus = ResultCode === 0 ? 'COMPLETED' : 'FAILED';
 
     await prisma.booking.update({
       where: { id: bookingId },
