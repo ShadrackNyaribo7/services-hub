@@ -50,6 +50,3 @@ next-env.d.ts
 
 # clerk configuration (can include secrets)
 /.clerk/
-
-# UFP integration (temporarily suspended)
-/src/app/services/ufp
