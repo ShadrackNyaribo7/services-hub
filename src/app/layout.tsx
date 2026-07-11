@@ -11,6 +11,7 @@ import Image from "next/image";
 import Link from "next/link";
 import OfflineBanner from "@/components/OfflineBanner";
 import MobileNav from "@/components/MobileNav";
+import PWAInstallButton from "@/components/PWAInstallButton";
 import "./globals.css";
 
 
@@ -78,6 +79,7 @@ export default function RootLayout({
               <MobileNav />
             </div>
           </header>
+          <PWAInstallButton />
           {children}
           <footer className="bg-gray-800 text-slate-300 py-8 mt-auto">
             <div className="mx-auto max-w-6xl px-4 sm:px-6">
