@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "Booking" ADD COLUMN     "developerFee" DOUBLE PRECISION DEFAULT 0,
+ADD COLUMN     "providerAmount" DOUBLE PRECISION DEFAULT 0;

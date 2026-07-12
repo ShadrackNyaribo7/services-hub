@@ -57,6 +57,16 @@ model Booking {
   mpesaReceiptNumber String?
   paymentMethod      String?         @default("MPESA")
   paymentCreatedAt   DateTime?
+  developerFee       Float?          @default(0)
+  providerAmount     Float?          @default(0)
+  commissionRate     Float?          @default(0.12)
+  serviceConfirmed   Boolean         @default(false)
+  serviceConfirmedAt DateTime?
+  clientConfirmed   Boolean         @default(false)
+  clientConfirmedAt DateTime?
+  suspiciousActivity Boolean         @default(false)
+  securityFlag       String?
+  escrowReleased     Boolean         @default(false)
   providerProfile    ProviderProfile @relation(fields: [providerProfileId], references: [id])
 }
 
