@@ -5,7 +5,7 @@ import { auth } from '@clerk/nextjs/server';
 // POST - Confirm service completion (for escrow release)
 export async function POST(
   request: NextRequest,
-  { params }: { params: { bookingId: string } }
+  { params }: { params: Promise<{ bookingId: string }> }
 ) {
   try {
     const { userId } = await auth();
@@ -13,7 +13,7 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { bookingId } = params;
+    const { bookingId } = await params;
     const { role, confirmed } = await request.json();
 
     // Find the booking
