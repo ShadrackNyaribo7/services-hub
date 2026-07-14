@@ -22,7 +22,11 @@ import {
   KoraVerificationRequest,
   KoraVerificationResponse,
   KoraQueryRequest,
-  KoraQueryResponse
+  KoraQueryResponse,
+  RatingRequest,
+  RatingResponse,
+  RatingEligibility,
+  ProviderRanking
 } from "@/types";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '';
@@ -133,6 +137,53 @@ export const koraVerificationService = {
     query: KoraQueryRequest
   ): Promise<ApiResponse<KoraQueryResponse>> {
     return apiCall<KoraQueryResponse>(`/api/kora/query?reference=${query.reference}`, {
+      method: 'GET',
+    });
+  },
+};
+
+// Rating and Ranking Service
+export const ratingService = {
+  async checkEligibility(
+    bookingId: string
+  ): Promise<ApiResponse<RatingEligibility>> {
+    return apiCall<RatingEligibility>(`/api/ratings/eligibility/${bookingId}`, {
+      method: 'GET',
+    });
+  },
+
+  async submitRating(
+    rating: RatingRequest
+  ): Promise<ApiResponse<RatingResponse>> {
+    return apiCall<RatingResponse>('/api/ratings', {
+      method: 'POST',
+      body: JSON.stringify(rating),
+    });
+  },
+
+  async getProviderRanking(
+    providerId: string
+  ): Promise<ApiResponse<ProviderRanking>> {
+    return apiCall<ProviderRanking>(`/api/ratings/providers/${providerId}`, {
+      method: 'GET',
+    });
+  },
+
+  async getLeaderboard(filters?: {
+    serviceCategory?: string;
+    county?: string;
+    tier?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<ApiResponse<any>> {
+    const params = new URLSearchParams();
+    if (filters?.serviceCategory) params.append('serviceCategory', filters.serviceCategory);
+    if (filters?.county) params.append('county', filters.county);
+    if (filters?.tier) params.append('tier', filters.tier);
+    if (filters?.limit) params.append('limit', filters.limit.toString());
+    if (filters?.offset) params.append('offset', filters.offset.toString());
+
+    return apiCall<any>(`/api/ratings/leaderboard?${params.toString()}`, {
       method: 'GET',
     });
   },
@@ -361,5 +412,6 @@ export const apiServices = {
   documentVerification: documentVerificationService,
   mpesaPayment: mpesaPaymentService,
   koraVerification: koraVerificationService,
+  rating: ratingService,
   ufp: ufpService,
 };

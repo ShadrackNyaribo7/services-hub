@@ -275,3 +275,58 @@ export interface KoraQueryResponse {
   data?: KoraVerificationResponse['data'];
   error?: string;
 }
+
+// Rating and Ranking types
+export interface Rating {
+  id: string;
+  bookingId: string;
+  providerProfileId: string;
+  clientPhone: string;
+  rating: number; // 1-5 stars
+  comment?: string;
+  ratingLegitimacyScore: number; // 0-1 score for legitimacy
+  automatedFlags: string[];
+  createdAt: Date;
+  ratingEligibleAt: Date;
+  ratedAt: Date;
+}
+
+export interface RatingRequest {
+  bookingId: string;
+  rating: number; // 1-5 stars
+  comment?: string;
+}
+
+export interface RatingResponse {
+  rating: Rating;
+  providerUpdated: {
+    averageRating: number;
+    totalRatings: number;
+    rankingTier: string;
+  };
+}
+
+export interface RatingEligibility {
+  eligible: boolean;
+  reason?: string;
+  paymentCompleted: boolean;
+  serviceConfirmed: boolean;
+  clientConfirmed: boolean;
+  escrowReleased: boolean;
+}
+
+export interface ProviderRanking {
+  providerId: string;
+  providerName: string;
+  serviceCategory: string;
+  averageRating: number;
+  totalRatings: number;
+  rankingTier: string;
+  ratingDistribution: {
+    fiveStar: number;
+    fourStar: number;
+    threeStar: number;
+    twoStar: number;
+    oneStar: number;
+  };
+}

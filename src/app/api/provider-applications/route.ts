@@ -22,7 +22,6 @@ if (!userId) {
       serviceCategory,
       policeClearanceNumber,
       IDnumber,
-      Credentialvalidator,
     } = body;
 
     if (!fullName || !phone || !county || !serviceCategory) {
@@ -43,7 +42,6 @@ if (!userId) {
             serviceCategory,
             policeClearanceNumber,
             idNumber: IDnumber,
-            credentialValidator: Credentialvalidator,
           },
         },
       },

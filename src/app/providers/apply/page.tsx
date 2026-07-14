@@ -19,7 +19,7 @@ export default function ProviderApplyPage() {
       serviceCategory: formData.get("serviceCategory") as string,
       policeClearanceNumber: formData.get("policeClearanceNumber") as string,
       IDnumber: formData.get("ID number") as string,
-      Credentialvalidator: formData.get("Credential validator") as string,
+      
     };
 
     const result = await submitApplication(application);

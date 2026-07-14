@@ -100,11 +100,12 @@ async function releaseEscrow(bookingId: string) {
     where: { id: bookingId },
     data: {
       escrowReleased: true,
-      status: 'COMPLETED'
+      status: 'COMPLETED',
+      ratingEligibleAt: new Date() // Mark when rating becomes eligible
     }
   });
 
-  console.log(`Escrow released for booking ${bookingId}`);
+  console.log(`Escrow released for booking ${bookingId}. Rating now eligible.`);
   // Here you would integrate with your payment system to actually
   // transfer the providerAmount to the provider's account
 }

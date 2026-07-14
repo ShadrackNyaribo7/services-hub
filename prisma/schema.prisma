@@ -37,7 +37,18 @@ model ProviderProfile {
   adminNotes            String?
   createdAt             DateTime           @default(now())
   bookings              Booking[]
+  ratings               Rating[]
   user                  User               @relation(fields: [userId], references: [id])
+  
+  // Rating aggregation fields
+  averageRating         Float?             @default(0)
+  totalRatings          Int                @default(0)
+  totalFiveStar         Int                @default(0)
+  totalFourStar         Int                @default(0)
+  totalThreeStar        Int                @default(0)
+  totalTwoStar          Int                @default(0)
+  totalOneStar          Int                @default(0)
+  rankingTier           RankingTier        @default(NEW)
 }
 
 model Booking {
@@ -67,7 +78,9 @@ model Booking {
   suspiciousActivity Boolean         @default(false)
   securityFlag       String?
   escrowReleased     Boolean         @default(false)
+  ratingEligibleAt   DateTime?
   providerProfile    ProviderProfile @relation(fields: [providerProfileId], references: [id])
+  rating             Rating?
 }
 
 enum UserRole {
@@ -96,5 +109,32 @@ enum PaymentStatus {
   COMPLETED
   FAILED
   REFUNDED
+}
+
+model Rating {
+  id                  String       @id @default(cuid())
+  bookingId           String       @unique
+  providerProfileId   String
+  clientPhone         String
+  rating              Int          // 1-5 stars
+  comment             String?
+  ratingLegitimacyScore Float       @default(0) // 0-1 score for legitimacy
+  automatedFlags      String[]     @default([]) // Flags for suspicious patterns
+  createdAt           DateTime     @default(now())
+  ratingEligibleAt    DateTime     // When rating became eligible (after dual confirmation)
+  ratedAt             DateTime     @default(now())
+  booking             Booking      @relation(fields: [bookingId], references: [id])
+  providerProfile     ProviderProfile @relation(fields: [providerProfileId], references: [id])
+  
+  @@index([providerProfileId])
+  @@index([bookingId])
+}
+
+enum RankingTier {
+  NEW            // 0-5 ratings
+  EMERGING       // 6-20 ratings
+  ESTABLISHED    // 21-50 ratings
+  TOP_RATED      // 51-100 ratings
+  ELITE          // 100+ ratings
 }
 
