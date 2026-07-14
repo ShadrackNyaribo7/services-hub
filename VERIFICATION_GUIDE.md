@@ -8,8 +8,8 @@ I've implemented a comprehensive document verification system with the following
 
 ### 1. Database Schema Updates
 - **File**: `prisma/schema.prisma`
-- **Changes**: Added `idNumber` and `credentialValidator` fields to the `ProviderProfile` model
-- **Purpose**: Store all document information for verification tracking
+- **Changes**: Added `idNumber` field to the `ProviderProfile` model
+- **Purpose**: Store document information for verification tracking
 
 ### 2. Verification Service Layer
 - **File**: `src/lib/verification/verificationService.ts`
@@ -71,7 +71,6 @@ import { documentVerificationService } from '@/services/api';
 const documents = {
   idNumber: '12345678',
   policeClearanceNumber: 'PCC123456',
-  credentialValidator: 'EBK123456',
   serviceCategory: 'Electrical'
 };
 
@@ -105,7 +104,6 @@ function MyComponent() {
     await verifyDocuments({
       idNumber: '12345678',
       policeClearanceNumber: 'PCC123456',
-      credentialValidator: 'EBK123456',
       serviceCategory: 'Electrical'
     });
   };
@@ -174,10 +172,6 @@ class MyCustomVerification implements VerificationProvider {
   async verifyPoliceClearance(certificateNumber: string): Promise<VerificationResult> {
     // Implement police clearance verification
   }
-
-  async verifyCredentials(validator: string, serviceCategory: string): Promise<VerificationResult> {
-    // Implement credential verification
-  }
 }
 ```
 
@@ -228,7 +222,6 @@ The system will work with basic validation even without API keys:
 const result = await documentVerificationService.verifyDocuments({
   idNumber: '12345678', // 8+ digits
   policeClearanceNumber: 'PCC123456', // 5+ characters
-  credentialValidator: 'EBK123456', // 3+ characters
   serviceCategory: 'Electrical'
 });
 ```

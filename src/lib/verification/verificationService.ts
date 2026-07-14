@@ -12,7 +12,6 @@ interface VerificationProvider {
   name: string;
   verifyIdNumber(idNumber: string): Promise<VerificationResult>;
   verifyPoliceClearance(certificateNumber: string): Promise<VerificationResult>;
-  verifyCredentials(validator: string, serviceCategory: string): Promise<VerificationResult>;
 }
 
 // Kenya Government Services (using Korapay for ID verification)
@@ -89,8 +88,8 @@ class KenyaGovernmentVerification implements VerificationProvider {
       // Note: Police clearance verification typically requires direct DCI integration
       // Most third-party providers don't offer this service
       // For now, we'll do basic validation and recommend manual verification
-      return { 
-        valid: true, 
+      return {
+        valid: true,
         reason: 'Police clearance requires manual verification. Please upload certificate for admin review.',
         provider: this.name,
         details: { requiresManualReview: true }
@@ -98,12 +97,6 @@ class KenyaGovernmentVerification implements VerificationProvider {
     } catch (error) {
       return { valid: false, reason: 'Police clearance verification service unavailable', provider: this.name };
     }
-  }
-
-  async verifyCredentials(validator: string, serviceCategory: string): Promise<VerificationResult> {
-    // Kenya government doesn't directly verify professional credentials
-    // This would be handled by professional bodies
-    return { valid: false, reason: 'Professional credential verification requires professional body integration', provider: this.name };
   }
 }
 
@@ -120,55 +113,6 @@ class ProfessionalBodyVerification implements VerificationProvider {
 
   async verifyPoliceClearance(certificateNumber: string): Promise<VerificationResult> {
     return { valid: false, reason: 'Police clearance not handled by professional bodies', provider: this.name };
-  }
-
-  async verifyCredentials(validator: string, serviceCategory: string): Promise<VerificationResult> {
-    try {
-      // Map service categories to professional bodies
-      const bodyMappings: Record<string, string> = {
-        'Electrical': 'EBK', // Engineers Board of Kenya
-        'Plumber': 'EBK',
-        'Personal trainer': 'KREC', // Kenya Recreation Exercise Council
-        'Cleaning': 'N/A', // No specific body for cleaning
-      };
-
-      const bodyCode = bodyMappings[serviceCategory];
-
-      if (bodyCode === 'N/A' || !bodyCode) {
-        return { valid: true, reason: 'No professional body verification required for this service', provider: this.name };
-      }
-
-      if (!this.apiKey) {
-        // Return valid if no API key configured but professional body exists
-        return { valid: true, reason: 'Professional body verification pending manual review', provider: this.name };
-      }
-
-      const response = await fetch(`${this.apiBaseUrl}/verify`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${this.apiKey}`,
-        },
-        body: JSON.stringify({
-          licenseNumber: validator,
-          professionalBody: bodyCode,
-        }),
-      });
-
-      const result = await response.json();
-
-      if (result.valid && result.status === 'ACTIVE') {
-        return {
-          valid: true,
-          provider: this.name,
-          details: { licenseNumber: result.licenseNumber, expiryDate: result.expiryDate }
-        };
-      } else {
-        return { valid: false, reason: result.reason || 'Credential verification failed', provider: this.name };
-      }
-    } catch (error) {
-      return { valid: true, reason: 'Professional credential verification pending manual review', provider: this.name };
-    }
   }
 }
 
@@ -210,11 +154,6 @@ class CommercialVerificationService implements VerificationProvider {
   async verifyPoliceClearance(certificateNumber: string): Promise<VerificationResult> {
     // Commercial services typically don't verify police certificates
     return { valid: true, reason: 'Police certificate verification handled by government services', provider: this.name };
-  }
-
-  async verifyCredentials(validator: string, serviceCategory: string): Promise<VerificationResult> {
-    // Commercial services typically don't verify professional credentials
-    return { valid: true, reason: 'Professional credential verification handled by professional bodies', provider: this.name };
   }
 }
 
@@ -273,35 +212,24 @@ class VerificationService {
     return this.basicPoliceClearanceValidation(certificateNumber);
   }
 
-  async verifyCredentials(validator: string, serviceCategory: string): Promise<VerificationResult> {
-    // Always use professional body verification for credentials
-    const professionalBody = new ProfessionalBodyVerification();
-    return await professionalBody.verifyCredentials(validator, serviceCategory);
-  }
-
   async verifyAllDocuments(documents: {
     idNumber: string;
     policeClearanceNumber: string;
-    credentialValidator: string;
-    serviceCategory: string;
   }): Promise<{
     idVerification: VerificationResult;
     policeClearanceVerification: VerificationResult;
-    credentialVerification: VerificationResult;
     overallValid: boolean;
   }> {
-    const [idVerification, policeClearanceVerification, credentialVerification] = await Promise.all([
+    const [idVerification, policeClearanceVerification] = await Promise.all([
       this.verifyIdNumber(documents.idNumber),
-      this.verifyPoliceClearance(documents.policeClearanceNumber),
-      this.verifyCredentials(documents.credentialValidator, documents.serviceCategory)
+      this.verifyPoliceClearance(documents.policeClearanceNumber)
     ]);
 
-    const overallValid = idVerification.valid && policeClearanceVerification.valid && credentialVerification.valid;
+    const overallValid = idVerification.valid && policeClearanceVerification.valid;
 
     return {
       idVerification,
       policeClearanceVerification,
-      credentialVerification,
       overallValid
     };
   }

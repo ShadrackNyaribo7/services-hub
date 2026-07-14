@@ -16,7 +16,6 @@ export interface VerificationResult {
 export interface DocumentVerificationRequest {
   idNumber: string;
   policeClearanceNumber: string;
-  credentialValidator: string;
   serviceCategory?: string;
 }
 
@@ -26,7 +25,6 @@ export interface DocumentVerificationResponse {
   verificationResults: {
     idVerification: VerificationResult;
     policeClearanceVerification: VerificationResult;
-    credentialVerification: VerificationResult;
   };
   providerProfile: any;
 }
@@ -38,7 +36,6 @@ export interface VerificationStatusResponse {
   documents: {
     idNumber: string;
     policeClearanceNumber: string;
-    credentialValidator: string;
   };
 }
 
@@ -50,7 +47,6 @@ export interface ProviderApplication {
   serviceCategory: string;
   policeClearanceNumber?: string;
   IDnumber?: string;
-  Credentialvalidator?: string;
 }
 
 export interface ProviderApplicationResponse {

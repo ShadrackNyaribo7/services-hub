@@ -15,12 +15,12 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json();
-    const { idNumber, policeClearanceNumber, credentialValidator, serviceCategory } = body;
+    const { idNumber, policeClearanceNumber, serviceCategory } = body;
 
     // Validate required fields
-    if (!idNumber || !policeClearanceNumber || !credentialValidator) {
+    if (!idNumber || !policeClearanceNumber) {
       return NextResponse.json(
-        { error: "All document fields are required for verification." },
+        { error: "ID number and police clearance number are required for verification." },
         { status: 400 }
       );
     }
@@ -40,9 +40,7 @@ export async function POST(request: Request) {
     // Perform third-party verification
     const verificationResults = await verificationService.verifyAllDocuments({
       idNumber,
-      policeClearanceNumber,
-      credentialValidator,
-      serviceCategory: serviceCategory || providerProfile.serviceCategory
+      policeClearanceNumber
     });
 
     // Update provider profile with document details and verification status
@@ -51,24 +49,22 @@ export async function POST(request: Request) {
       data: {
         idNumber,
         policeClearanceNumber,
-        credentialValidator,
         verificationStatus: verificationResults.overallValid ? "APPROVED" : "PENDING",
-        adminNotes: verificationResults.overallValid 
-          ? "All documents verified successfully" 
-          : `Verification pending: ID=${verificationResults.idVerification.reason}, Police=${verificationResults.policeClearanceVerification.reason}, Credentials=${verificationResults.credentialVerification.reason}`,
+        adminNotes: verificationResults.overallValid
+          ? "All documents verified successfully"
+          : `Verification pending: ID=${verificationResults.idVerification.reason}, Police=${verificationResults.policeClearanceVerification.reason}`,
       },
     });
 
     // Return detailed verification results
     return NextResponse.json({
-      message: verificationResults.overallValid 
-        ? "Documents verified successfully" 
+      message: verificationResults.overallValid
+        ? "Documents verified successfully"
         : "Documents submitted with some verification issues",
       verificationStatus: updatedProfile.verificationStatus,
       verificationResults: {
         idVerification: verificationResults.idVerification,
         policeClearanceVerification: verificationResults.policeClearanceVerification,
-        credentialVerification: verificationResults.credentialVerification,
       },
       providerProfile: updatedProfile,
     }, { status: verificationResults.overallValid ? 200 : 207 }); // 207 for partial success
@@ -108,13 +104,11 @@ export async function GET(request: Request) {
       adminNotes: providerProfile.adminNotes,
       hasDocuments: !!(
         providerProfile.idNumber &&
-        providerProfile.policeClearanceNumber &&
-        providerProfile.credentialValidator
+        providerProfile.policeClearanceNumber
       ),
       documents: {
         idNumber: providerProfile.idNumber ? "Provided" : "Missing",
         policeClearanceNumber: providerProfile.policeClearanceNumber ? "Provided" : "Missing",
-        credentialValidator: providerProfile.credentialValidator ? "Provided" : "Missing",
       },
     });
   } catch (error) {

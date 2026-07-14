@@ -32,14 +32,13 @@ model ProviderProfile {
   serviceCategory       String
   policeClearanceNumber String?
   idNumber              String?
-  credentialValidator   String?
   verificationStatus    VerificationStatus @default(PENDING)
   adminNotes            String?
   createdAt             DateTime           @default(now())
   bookings              Booking[]
   ratings               Rating[]
   user                  User               @relation(fields: [userId], references: [id])
-  
+
   // Rating aggregation fields
   averageRating         Float?             @default(0)
   totalRatings          Int                @default(0)

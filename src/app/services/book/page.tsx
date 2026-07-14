@@ -11,7 +11,7 @@ export default function BookProviderPage() {
   const { initiatePayment, isLoading: paymentLoading, error: paymentError, success: paymentSuccess, reset: paymentReset } = useMpesaPayment();
   const [bookingId, setBookingId] = useState<string | null>(null);
   const [showPayment, setShowPayment] = useState(false);
-  const [amount, setAmount] = useState<number>(500); // Default service fee
+  const [amount, setAmount] = useState<number>(100); // Default service fee
 
   async function handleBookingSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -33,7 +33,7 @@ export default function BookProviderPage() {
 
     if (result) {
       // Extract booking ID from response
-      // In real implementation, you'd get this from the API response
+      
       const mockBookingId = "booking-" + Date.now();
       setBookingId(mockBookingId);
       setShowPayment(true);
@@ -145,7 +145,7 @@ export default function BookProviderPage() {
 
             {bookingSuccess && (
               <p className="text-sm font-medium text-emerald-700">
-                Booking request submitted! Proceed to payment.
+                Booking request submitted! After payment, both you and the provider will need to confirm service completion before the booking is finalized.
               </p>
             )}
             {error && (
@@ -180,7 +180,7 @@ export default function BookProviderPage() {
 
               {paymentSuccess && (
                 <p className="text-sm font-medium text-emerald-700">
-                  Payment initiated! Check your phone for the MPesa STK push prompt.
+                  Payment initiated! Check your phone for the MPesa STK push prompt. After payment completion, both you and the provider will confirm service delivery.
                 </p>
               )}
               {paymentError && (
