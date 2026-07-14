@@ -53,6 +53,8 @@ next-env.d.ts
  
  # UFP integration (temporarily suspended)
 /src/app/services/ufp
- 
- 
+/src/app/api/ufp
+UFP_INTEGRATION_GUIDE.md
+src/hooks/useUfpBooking.ts
+
 
