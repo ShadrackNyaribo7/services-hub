@@ -126,7 +126,7 @@ export async function GET(request: NextRequest) {
           select: {
             clientName: true,
             scheduledDate: true,
-            serviceCategory: true
+            county: true
           }
         }
       },
@@ -207,7 +207,7 @@ async function updateProviderRanking(providerProfileId: string) {
   };
 
   // Determine ranking tier based on total ratings
-  let rankingTier = 'NEW';
+  let rankingTier: 'NEW' | 'EMERGING' | 'ESTABLISHED' | 'TOP_RATED' | 'ELITE' = 'NEW';
   if (totalRatings >= 100) rankingTier = 'ELITE';
   else if (totalRatings >= 51) rankingTier = 'TOP_RATED';
   else if (totalRatings >= 21) rankingTier = 'ESTABLISHED';
