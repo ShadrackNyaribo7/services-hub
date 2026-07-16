@@ -57,4 +57,15 @@ next-env.d.ts
 UFP_INTEGRATION_GUIDE.md
 src/hooks/useUfpBooking.ts
 
+# markdown files
+*.md
+
+# testing files
+**/__tests__/
+**/*.test.ts
+**/*.test.js
+**/*.spec.ts
+**/*.spec.js
+test-*.js
+
 
