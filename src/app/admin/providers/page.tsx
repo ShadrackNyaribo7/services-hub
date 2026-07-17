@@ -2,6 +2,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { currentUser } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
+import BackgroundLottieServer from "@/components/BackgroundLottieServer";
 
 export const dynamic = "force-dynamic";
 
@@ -51,6 +52,7 @@ export default async function AdminProvidersPage() {
 
   return (
     <main className="min-h-screen bg-slate-50 px-6 py-10 text-slate-950">
+      <BackgroundLottieServer />
       <section className="mx-auto max-w-5xl">
         <h1 className="text-3xl font-bold">Provider Applications</h1>
 

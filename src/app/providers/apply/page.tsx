@@ -32,7 +32,7 @@ export default function ProviderApplyPage() {
 
   return (
     <main className="min-h-screen bg-black = 900 px-4 py-10 text-slate-950 sm:px-6">
-       <LottieAnimation src="/services.lottie" top="0" left="0" width="100%" height="100vh" zIndex={1} animate={false} opacity="0.3" scale="1.5" />
+       <LottieAnimation src="/services.lottie" top="0" left="0" width="100%" height="100vh" zIndex={1} opacity="0.3" scale="1.5" />
       <section className="mx-auto max-w-5xl"></section>
       <section className="mx-auto max-w-2xl">
         <h1 className="text-2xl font-bold text-emerald-400 sm:text-3xl">Provider Application</h1>

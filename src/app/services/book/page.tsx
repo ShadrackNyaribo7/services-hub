@@ -4,6 +4,7 @@ import { FormEvent, useState } from "react";
 import { useParams } from "next/navigation";
 import { useBooking } from "@/hooks/useBooking";
 import { useMpesaPayment } from "@/hooks/useMpesaPayment";
+import BackgroundLottie from "@/components/BackgroundLottie";
 
 export default function BookProviderPage() {
   const params = useParams<{ id: string }>();
@@ -69,6 +70,7 @@ export default function BookProviderPage() {
 
   return (
     <main className="min-h-screen bg-slate-50 px-4 py-10 text-slate-950 sm:px-6">
+      <BackgroundLottie />
       <section className="mx-auto max-w-2xl">
         <h1 className="text-2xl font-bold sm:text-3xl">Book Provider</h1>
 

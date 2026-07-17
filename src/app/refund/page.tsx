@@ -1,6 +1,11 @@
+"use client";
+
+import BackgroundLottie from "@/components/BackgroundLottie";
+
 export default function RefundPolicy() {
   return (
     <div className="min-h-screen bg-gray-900 text-slate-50 py-12 px-6">
+      <BackgroundLottie />
       <div className="mx-auto max-w-4xl">
         <h1 className="text-4xl font-bold mb-8">Refund Policy</h1>
         

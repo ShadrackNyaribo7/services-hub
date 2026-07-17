@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import BackgroundLottieServer from "@/components/BackgroundLottieServer";
 
 export const dynamic = 'force-dynamic';
 
@@ -26,6 +27,7 @@ export default async function ProviderDetailPage({
 
   return (
     <main className="min-h-screen bg-white px-4 py-10 text-slate-950 sm:px-6">
+      <BackgroundLottieServer />
       <section className="mx-auto max-w-3xl">
         <Link href="/services" className="text-sm font-semibold text-emerald-700">
           Back to providers
