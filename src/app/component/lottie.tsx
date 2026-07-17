@@ -8,8 +8,8 @@ import { useEffect, useRef } from "react";
  * A wrapper component around DotLottieReact that adds custom animation behaviors
  * like flying across the screen, positioning, and scaling control.
  *
- * The DotLottieReact component handles the actual .lottie file decompression
- * and rendering on the client side, while this component adds additional
+ * The DotLottieReact component handles the actual .lottie and .json file
+ * rendering on the client side, while this component adds additional
  * functionality like container positioning, custom flying animations,
  * and styling control.
  *
@@ -120,17 +120,19 @@ const LottieAnimation = ({
         overflow: "hidden",
       }}
     >
-      <DotLottieReact
-        src={src}
-        loop={loop}
-        autoplay={autoplay}
-        style={{
-          height: "100%",
-          width: "100%",
-          transform: `scale(${scale})`,
-          transformOrigin: "center",
-        }}
-      />
+      {animationData && (
+        <Lottie
+          animationData={animationData}
+          loop={loop}
+          autoplay={autoplay}
+          style={{
+            height: "100%",
+            width: "100%",
+            transform: `scale(${scale})`,
+            transformOrigin: "center",
+          }}
+        />
+      )}
     </div>
   );
 };
