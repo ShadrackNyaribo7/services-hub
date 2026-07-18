@@ -1,16 +1,15 @@
 "use client";
+import { useEffect, useState } from "react";
+import Lottie from "lottie-react";
 import { DotLottieReact } from "@lottiefiles/dotlottie-react";
 
 /**
  * LottieAnimation Component
  *
- * A wrapper component around DotLottieReact for displaying compressed .lottie animations
- * as background elements. Supports positioning, scaling, and opacity control.
+ * Handles both standard .json Lottie files (via lottie-react) and
+ * compressed .lottie files (via @lottiefiles/dotlottie-react).
  *
- * The DotLottieReact component handles the actual .lottie file rendering on the client side,
- * while this component adds container positioning and styling control.
- *
- * @param {string} src - Path to the .lottie animation file
+ * @param {string} src - Path to the animation file (.json or .lottie)
  * @param {string} top - CSS top position (default: "0")
  * @param {string} left - CSS left position (default: "0")
  * @param {string} right - CSS right position (default: "auto")
@@ -19,8 +18,8 @@ import { DotLottieReact } from "@lottiefiles/dotlottie-react";
  * @param {number} zIndex - CSS z-index layer (default: 0)
  * @param {string} opacity - CSS opacity (default: "0.7")
  * @param {string} scale - CSS transform scale (default: "1")
- * @param {boolean} loop - Loop the internal animation (default: true)
- * @param {boolean} autoplay - Auto-play the internal animation (default: true)
+ * @param {boolean} loop - Loop the animation (default: true)
+ * @param {boolean} autoplay - Auto-play the animation (default: true)
  */
 interface LottieAnimationProps {
   src?: string;
@@ -49,6 +48,40 @@ const LottieAnimation = ({
   loop = true,
   autoplay = true,
 }: LottieAnimationProps) => {
+  const [isClient, setIsClient] = useState(false);
+  const [animationData, setAnimationData] = useState<object | null>(null);
+  const [loadError, setLoadError] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
+  // For .json files, fetch and parse the animation data for lottie-react
+  useEffect(() => {
+    if (!src || !src.endsWith(".json")) return;
+
+    fetch(src)
+      .then((res) => {
+        if (!res.ok) throw new Error(`Failed to load ${src}`);
+        return res.json();
+      })
+      .then((data) => {
+        setAnimationData(data);
+        setLoadError(false);
+      })
+      .catch((err) => {
+        console.error("LottieAnimation: Failed to load animation:", err);
+        setLoadError(true);
+      });
+  }, [src]);
+
+  if (!isClient) {
+    return null;
+  }
+
+  const isJsonFile = src.endsWith(".json");
+  const isLottieFile = src.endsWith(".lottie");
+
   return (
     <div
       style={{
@@ -67,17 +100,38 @@ const LottieAnimation = ({
         overflow: "hidden",
       }}
     >
-      <DotLottieReact
-        src={src}
-        loop={loop}
-        autoplay={autoplay}
-        style={{
-          height: "100%",
-          width: "100%",
-          transform: `scale(${scale})`,
-          transformOrigin: "center",
-        }}
-      />
+      {isJsonFile && animationData && (
+        <Lottie
+          animationData={animationData}
+          loop={loop}
+          autoplay={autoplay}
+          style={{
+            height: "100%",
+            width: "100%",
+            transform: `scale(${scale})`,
+            transformOrigin: "center",
+          }}
+        />
+      )}
+      {isJsonFile && !animationData && !loadError && null}
+      {isJsonFile && loadError && (
+        <div style={{ color: "red", fontSize: "12px" }}>
+          Animation failed to load
+        </div>
+      )}
+      {isLottieFile && (
+        <DotLottieReact
+          src={src}
+          loop={loop}
+          autoplay={autoplay}
+          style={{
+            height: "100%",
+            width: "100%",
+            transform: `scale(${scale})`,
+            transformOrigin: "center",
+          }}
+        />
+      )}
     </div>
   );
 };
