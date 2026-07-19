@@ -9,6 +9,22 @@ interface MpesaConfig {
   environment: 'sandbox' | 'production';
 }
 
+interface MpesaSTKPushResponse {
+  success: boolean;
+  checkoutRequestID: string;
+  responseCode: string;
+  responseDescription: string;
+  merchantRequestID: string;
+}
+
+interface MpesaPaymentStatusResponse {
+  success: boolean;
+  responseCode: string;
+  responseDescription: string;
+  resultDesc: string;
+  resultCode: string;
+}
+
 class MpesaService {
   private config: MpesaConfig;
   private accessToken: string | null = null;
@@ -89,7 +105,7 @@ class MpesaService {
     return password;
   }
 
-  async initiateSTKPush(phoneNumber: string, amount: number, bookingId: string): Promise<any> {
+  async initiateSTKPush(phoneNumber: string, amount: number, bookingId: string): Promise<MpesaSTKPushResponse> {
     try {
       const accessToken = await this.getAccessToken();
       const timestamp = this.generateTimestamp();
@@ -140,7 +156,7 @@ class MpesaService {
     }
   }
 
-  async checkPaymentStatus(checkoutRequestID: string): Promise<any> {
+  async checkPaymentStatus(checkoutRequestID: string): Promise<MpesaPaymentStatusResponse> {
     try {
       const accessToken = await this.getAccessToken();
       const timestamp = this.generateTimestamp();

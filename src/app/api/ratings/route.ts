@@ -3,6 +3,12 @@ import { prisma } from '@/lib/prisma';
 import { auth } from '@clerk/nextjs/server';
 import { RatingRequest, RatingResponse } from '@/types';
 
+interface RatingLegitimacyBooking {
+  amount: number | null;
+  ratingEligibleAt: Date | null;
+  suspiciousActivity: boolean;
+}
+
 // POST - Submit a rating for a provider
 export async function POST(request: NextRequest) {
   try {
@@ -145,7 +151,10 @@ export async function GET(request: NextRequest) {
 }
 
 // Helper function to calculate rating legitimacy
-function calculateRatingLegitimacy(booking: any, rating: number): { score: number, flags: string[] } {
+function calculateRatingLegitimacy(
+  booking: RatingLegitimacyBooking,
+  rating: number
+): { score: number; flags: string[] } {
   let score = 1.0; // Start with perfect legitimacy
   const flags: string[] = [];
 

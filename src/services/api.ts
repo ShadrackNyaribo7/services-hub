@@ -9,6 +9,7 @@ import {
   VerificationStatusResponse,
   MpesaPaymentRequest,
   MpesaPaymentResponse,
+  MpesaPaymentStatusResponse,
   UFPAuthRequest,
   UFPAuthResponse,
   UFPCoach,
@@ -26,6 +27,7 @@ import {
   RatingRequest,
   RatingResponse,
   RatingEligibility,
+  ProviderLeaderboardResponse,
   ProviderRanking
 } from "@/types";
 
@@ -115,8 +117,10 @@ export const mpesaPaymentService = {
     });
   },
 
-  async checkPaymentStatus(bookingId: string): Promise<ApiResponse<any>> {
-    return apiCall<any>(`/api/mpesa/status?bookingId=${bookingId}`, {
+  async checkPaymentStatus(
+    bookingId: string
+  ): Promise<ApiResponse<MpesaPaymentStatusResponse>> {
+    return apiCall<MpesaPaymentStatusResponse>(`/api/mpesa/status?bookingId=${bookingId}`, {
       method: 'GET',
     });
   },
@@ -175,7 +179,7 @@ export const ratingService = {
     tier?: string;
     limit?: number;
     offset?: number;
-  }): Promise<ApiResponse<any>> {
+  }): Promise<ApiResponse<ProviderLeaderboardResponse>> {
     const params = new URLSearchParams();
     if (filters?.serviceCategory) params.append('serviceCategory', filters.serviceCategory);
     if (filters?.county) params.append('county', filters.county);
@@ -183,7 +187,7 @@ export const ratingService = {
     if (filters?.limit) params.append('limit', filters.limit.toString());
     if (filters?.offset) params.append('offset', filters.offset.toString());
 
-    return apiCall<any>(`/api/ratings/leaderboard?${params.toString()}`, {
+    return apiCall<ProviderLeaderboardResponse>(`/api/ratings/leaderboard?${params.toString()}`, {
       method: 'GET',
     });
   },

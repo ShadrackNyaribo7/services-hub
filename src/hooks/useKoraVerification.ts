@@ -1,12 +1,17 @@
 import { useState } from "react";
 import { apiServices } from "@/services/api";
-import { KoraVerificationRequest, KoraVerificationResponse, KoraQueryRequest } from "@/types";
+import { KoraQueryResponse, KoraVerificationRequest, KoraVerificationResponse } from "@/types";
+
+type VerificationData =
+  | KoraVerificationResponse
+  | KoraQueryResponse
+  | null;
 
 export function useKoraVerification() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
-  const [verificationData, setVerificationData] = useState<any>(null);
+  const [verificationData, setVerificationData] = useState<VerificationData>(null);
 
   const verifyIdentity = async (verification: KoraVerificationRequest): Promise<KoraVerificationResponse | null> => {
     setIsLoading(true);
@@ -22,7 +27,7 @@ export function useKoraVerification() {
       }
 
       setSuccess(true);
-      setVerificationData(response.data);
+      setVerificationData(response.data ?? null);
       return response.data || null;
     } catch (err) {
       setError(err instanceof Error ? err.message : "An unexpected error occurred");
@@ -44,7 +49,7 @@ export function useKoraVerification() {
         return null;
       }
 
-      setVerificationData(response.data);
+      setVerificationData(response.data ?? null);
       return response.data;
     } catch (err) {
       setError(err instanceof Error ? err.message : "An unexpected error occurred");

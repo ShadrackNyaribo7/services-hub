@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { koraVerificationService } from "@/lib/kora/koraVerificationService";
-import { KoraVerificationRequest } from "@/types";
 
 export async function POST(request: Request) {
   try {

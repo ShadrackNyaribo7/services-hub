@@ -24,3 +24,48 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+.site-animation-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.site-background-video {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  object-fit: cover;
+  opacity: 0.26;
+  filter: saturate(1.05) contrast(1.08);
+  pointer-events: none;
+}
+
+.rocket-horizontal-flight {
+  animation: rocket-horizontal-flight 18s linear infinite;
+  will-change: transform;
+}
+
+@keyframes rocket-horizontal-flight {
+  0% {
+    transform: translate3d(-45vw, 0, 0);
+  }
+
+  100% {
+    transform: translate3d(120vw, 0, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .site-background-video {
+    display: none;
+  }
+
+  .rocket-horizontal-flight {
+    animation: none;
+    transform: translate3d(8vw, 0, 0);
+  }
+}

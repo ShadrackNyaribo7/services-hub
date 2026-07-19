@@ -50,7 +50,7 @@ export async function GET(
 
     if (!allRequirementsMet) {
       const failedRequirements = Object.entries(eligibilityChecks)
-        .filter(([_, met]) => !met)
+        .filter((entry) => !entry[1])
         .map(([requirement]) => requirement);
 
       return NextResponse.json({

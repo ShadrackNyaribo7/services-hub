@@ -10,7 +10,7 @@ export interface VerificationResult {
   valid: boolean;
   reason?: string;
   provider?: string;
-  details?: any;
+  details?: Record<string, unknown>;
 }
 
 export interface DocumentVerificationRequest {
@@ -26,7 +26,7 @@ export interface DocumentVerificationResponse {
     idVerification: VerificationResult;
     policeClearanceVerification: VerificationResult;
   };
-  providerProfile: any;
+  providerProfile: Record<string, unknown>;
 }
 
 export interface VerificationStatusResponse {
@@ -119,6 +119,15 @@ export interface MpesaPaymentResponse {
   checkoutRequestID?: string;
   responseCode?: string;
   responseDescription?: string;
+}
+
+export interface MpesaPaymentStatusResponse {
+  paymentStatus: string;
+  amount?: number | null;
+  mpesaReceiptNumber?: string | null;
+  mpesaTransactionId?: string | null;
+  paymentMethod?: string | null;
+  paymentCreatedAt?: Date | string | null;
 }
 
 export interface MpesaCallbackRequest {
@@ -324,5 +333,19 @@ export interface ProviderRanking {
     threeStar: number;
     twoStar: number;
     oneStar: number;
+  };
+}
+
+export interface ProviderLeaderboardItem extends ProviderRanking {
+  county: string;
+}
+
+export interface ProviderLeaderboardResponse {
+  leaderboard: ProviderLeaderboardItem[];
+  pagination: {
+    total: number;
+    limit: number;
+    offset: number;
+    hasMore: boolean;
   };
 }

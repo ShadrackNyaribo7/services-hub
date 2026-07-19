@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { mpesaService } from "@/lib/mpesa/mpesaService";
 import { prisma } from "@/lib/prisma";
 
 export async function GET(request: Request) {

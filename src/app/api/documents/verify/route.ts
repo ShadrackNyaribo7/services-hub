@@ -15,7 +15,7 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json();
-    const { idNumber, policeClearanceNumber, serviceCategory } = body;
+    const { idNumber, policeClearanceNumber } = body;
 
     // Validate required fields
     if (!idNumber || !policeClearanceNumber) {
@@ -77,7 +77,7 @@ export async function POST(request: Request) {
   }
 }
 
-export async function GET(request: Request) {
+export async function GET() {
   const { userId } = await auth();
 
   if (!userId) {

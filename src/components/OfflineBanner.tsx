@@ -1,24 +1,25 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
+
+const subscribeToNetworkStatus = (callback: () => void) => {
+  window.addEventListener("offline", callback);
+  window.addEventListener("online", callback);
+
+  return () => {
+    window.removeEventListener("offline", callback);
+    window.removeEventListener("online", callback);
+  };
+};
+
+const getNetworkSnapshot = () => !navigator.onLine;
+const getServerSnapshot = () => false;
 
 export default function OfflineBanner() {
-  const [isOffline, setIsOffline] = useState(false);
-  
-  useEffect(() => {
-    const handleOffline = () => setIsOffline(true);
-    const handleOnline = () => setIsOffline(false);
-    
-    window.addEventListener('offline', handleOffline);
-    window.addEventListener('online', handleOnline);
-    
-    // Check initial state
-    setIsOffline(!navigator.onLine);
-    
-    return () => {
-      window.removeEventListener('offline', handleOffline);
-      window.removeEventListener('online', handleOnline);
-    };
-  }, []);
+  const isOffline = useSyncExternalStore(
+    subscribeToNetworkStatus,
+    getNetworkSnapshot,
+    getServerSnapshot,
+  );
   
   if (!isOffline) return null;
   

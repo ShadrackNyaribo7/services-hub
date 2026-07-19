@@ -5,7 +5,21 @@ interface VerificationResult {
   valid: boolean;
   reason?: string;
   provider?: string;
-  details?: any;
+  details?: Record<string, unknown>;
+}
+
+interface VerificationApiResponse {
+  message?: string;
+  valid?: boolean;
+  reason?: string;
+  details?: Record<string, unknown>;
+  data?: {
+    status?: string;
+    first_name?: string;
+    last_name?: string;
+    middle_name?: string;
+    full_name?: string;
+  };
 }
 
 interface VerificationProvider {
@@ -21,7 +35,10 @@ class KenyaGovernmentVerification implements VerificationProvider {
   private apiBaseUrl = process.env.KE_GOV_API_URL || 'https://api.korapay.com/merchant/api/v1';
   private apiKey = process.env.KE_GOV_API_KEY;
 
-  private async makeApiCall(endpoint: string, data: any): Promise<any> {
+  private async makeApiCall(
+    endpoint: string,
+    data: Record<string, unknown>
+  ): Promise<VerificationApiResponse> {
     if (!this.apiKey) {
       throw new Error('Kenya Government API key not configured');
     }
@@ -73,7 +90,7 @@ class KenyaGovernmentVerification implements VerificationProvider {
       } else {
         return { valid: false, reason: result.message || 'ID verification failed', provider: this.name };
       }
-    } catch (error) {
+    } catch {
       return { valid: false, reason: 'Kenya ID verification service unavailable', provider: this.name };
     }
   }
@@ -94,7 +111,7 @@ class KenyaGovernmentVerification implements VerificationProvider {
         provider: this.name,
         details: { requiresManualReview: true }
       };
-    } catch (error) {
+    } catch {
       return { valid: false, reason: 'Police clearance verification service unavailable', provider: this.name };
     }
   }
@@ -107,11 +124,11 @@ class ProfessionalBodyVerification implements VerificationProvider {
   private apiBaseUrl = process.env.PROFESSIONAL_BODY_API_URL || '';
   private apiKey = process.env.PROFESSIONAL_BODY_API_KEY;
 
-  async verifyIdNumber(idNumber: string): Promise<VerificationResult> {
+  async verifyIdNumber(): Promise<VerificationResult> {
     return { valid: false, reason: 'ID verification not handled by professional bodies', provider: this.name };
   }
 
-  async verifyPoliceClearance(certificateNumber: string): Promise<VerificationResult> {
+  async verifyPoliceClearance(): Promise<VerificationResult> {
     return { valid: false, reason: 'Police clearance not handled by professional bodies', provider: this.name };
   }
 }
@@ -146,12 +163,12 @@ class CommercialVerificationService implements VerificationProvider {
         provider: this.name,
         details: result.details
       };
-    } catch (error) {
+    } catch {
       return { valid: true, reason: 'Commercial verification service unavailable, using basic validation', provider: this.name };
     }
   }
 
-  async verifyPoliceClearance(certificateNumber: string): Promise<VerificationResult> {
+  async verifyPoliceClearance(): Promise<VerificationResult> {
     // Commercial services typically don't verify police certificates
     return { valid: true, reason: 'Police certificate verification handled by government services', provider: this.name };
   }

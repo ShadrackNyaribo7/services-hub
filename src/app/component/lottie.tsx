@@ -23,6 +23,7 @@ import { DotLottieReact } from "@lottiefiles/dotlottie-react";
  */
 interface LottieAnimationProps {
   src?: string;
+  className?: string;
   top?: string;
   left?: string;
   right?: string;
@@ -47,6 +48,7 @@ const getServerSnapshot = () => false;
 
 const LottieAnimation = ({
   src = "/rocket.json",
+  className,
   top = "0",
   left = "0",
   right = "auto",
@@ -137,6 +139,7 @@ const LottieAnimation = ({
 
   return (
     <div
+      className={className}
       data-testid={dataTestId}
       data-animation-src={src}
       aria-hidden="true"

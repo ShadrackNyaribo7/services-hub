@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { Prisma, RankingTier } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 
 // GET - Get provider leaderboard with optional filters
@@ -12,7 +13,7 @@ export async function GET(request: NextRequest) {
     const offset = parseInt(searchParams.get('offset') || '0');
 
     // Build where clause for filters
-    const where: any = {
+    const where: Prisma.ProviderProfileWhereInput = {
       verificationStatus: 'APPROVED' // Only show verified providers
     };
 
@@ -24,7 +25,7 @@ export async function GET(request: NextRequest) {
       where.county = county;
     }
 
-    if (tier) {
+    if (tier && isRankingTier(tier)) {
       where.rankingTier = tier;
     }
 
@@ -80,4 +81,8 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     );
   }
+}
+
+function isRankingTier(value: string): value is RankingTier {
+  return Object.values(RankingTier).includes(value as RankingTier);
 }

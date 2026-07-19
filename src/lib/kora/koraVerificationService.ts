@@ -50,6 +50,15 @@ interface KoraQueryResponse {
   data: KoraVerificationResponse['data'];
 }
 
+interface KoraWebhookPayload {
+  data?: {
+    reference?: string;
+    status?: string;
+  };
+  reference?: string;
+  status?: string;
+}
+
 class KoraVerificationService {
   private config: KoraConfig;
 
@@ -279,7 +288,7 @@ class KoraVerificationService {
   /**
    * Process webhook notification from Kora Pay
    */
-  processWebhook(payload: any): { success: boolean; reference: string; status: string } {
+  processWebhook(payload: KoraWebhookPayload): { success: boolean; reference: string; status: string } {
     try {
       const { reference, status } = payload.data || payload;
 
@@ -301,8 +310,10 @@ class KoraVerificationService {
   /**
    * Validate webhook signature (recommended for production)
    */
-  validateWebhookSignature(payload: any, signature: string): boolean {
+  validateWebhookSignature(payload: KoraWebhookPayload, signature: string): boolean {
     const webhookSecret = process.env.KORA_WEBHOOK_SECRET;
+    void payload;
+    void signature;
     if (!webhookSecret) {
       console.warn('Webhook secret not configured. Skipping signature verification.');
       return true; // Skip verification in development/test mode

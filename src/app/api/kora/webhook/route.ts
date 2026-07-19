@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { VerificationStatus } from "@prisma/client";
 import { koraVerificationService } from "@/lib/kora/koraVerificationService";
 import { prisma } from "@/lib/prisma";
 
@@ -16,7 +17,7 @@ export async function POST(request: Request) {
     }
 
     // Process the webhook
-    const { success, reference, status } = koraVerificationService.processWebhook(payload);
+    const { success, status } = koraVerificationService.processWebhook(payload);
 
     if (!success) {
       return NextResponse.json(
@@ -36,12 +37,13 @@ export async function POST(request: Request) {
 
     if (providerProfile) {
       // Update verification status based on Kora response
-      const verificationStatus = status === 'success' ? 'APPROVED' : 'REJECTED';
+      const verificationStatus: VerificationStatus =
+        status === 'success' ? 'APPROVED' : 'REJECTED';
       
       await prisma.providerProfile.update({
         where: { id: providerProfile.id },
         data: {
-          verificationStatus: verificationStatus as any,
+          verificationStatus,
           adminNotes: `Kora verification completed: ${status}`,
         },
       });

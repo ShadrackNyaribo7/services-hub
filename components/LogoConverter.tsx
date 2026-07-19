@@ -4,7 +4,7 @@ import { DotLottieReact } from '@lottiefiles/dotlottie-react';
 import { useRef, useState } from 'react';
 
 export default function LogoConverter() {
-  const lottieRef = useRef<any>(null);
+  const lottieRef = useRef<HTMLDivElement>(null);
   const [isExporting, setIsExporting] = useState(false);
 
   const exportToSVG = async () => {
@@ -40,9 +40,8 @@ export default function LogoConverter() {
     <div className="flex flex-col items-center gap-4 p-8">
       <h2 className="text-2xl font-bold">Logo Converter</h2>
       
-      <div className="border rounded-lg p-4 bg-white">
+      <div ref={lottieRef} className="border rounded-lg p-4 bg-white">
         <DotLottieReact
-          ref={lottieRef}
           src="/Creative Idea.lottie"
           loop
           autoplay

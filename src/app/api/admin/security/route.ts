@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { auth } from '@clerk/nextjs/server';
 
 // GET - Fetch suspicious activity reports
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     const { userId } = await auth();
     if (!userId) {
@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
     }, {} as Record<string, number>);
 
     const repeatOffenders = Object.entries(providerSuspiciousCount)
-      .filter(([_, count]) => count > 2)
+      .filter((entry) => entry[1] > 2)
       .map(([providerId, count]) => ({ providerId, count }));
 
     return NextResponse.json({
