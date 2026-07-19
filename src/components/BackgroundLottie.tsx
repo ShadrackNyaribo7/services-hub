@@ -1,19 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import LottieAnimation from "@/app/component/lottie";
 
 export default function BackgroundLottie() {
-  const [isMounted, setIsMounted] = useState(false);
-
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
-
-  if (!isMounted) {
-    return null;
-  }
-
   return (
     <LottieAnimation 
       src="/background-animation.lottie" 

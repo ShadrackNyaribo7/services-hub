@@ -4,11 +4,10 @@ import { FormEvent, useState } from "react";
 import { useParams } from "next/navigation";
 import { useBooking } from "@/hooks/useBooking";
 import { useMpesaPayment } from "@/hooks/useMpesaPayment";
-import BackgroundLottie from "@/components/BackgroundLottie";
 
 export default function BookProviderPage() {
   const params = useParams<{ id: string }>();
-  const { createBooking, isLoading: bookingLoading, error: bookingError, success: bookingSuccess, reset: bookingReset } = useBooking();
+  const { createBooking, isLoading: bookingLoading, error: bookingError, success: bookingSuccess } = useBooking();
   const { initiatePayment, isLoading: paymentLoading, error: paymentError, success: paymentSuccess, reset: paymentReset } = useMpesaPayment();
   const [bookingId, setBookingId] = useState<string | null>(null);
   const [showPayment, setShowPayment] = useState(false);
@@ -66,12 +65,9 @@ export default function BookProviderPage() {
 
   const isLoading = bookingLoading || paymentLoading;
   const error = bookingError || paymentError;
-  const success = bookingSuccess || paymentSuccess;
-
   return (
     <main className="min-h-screen bg-slate-50 px-4 py-10 text-slate-950 sm:px-6">
-      <BackgroundLottie />
-      <section className="mx-auto max-w-2xl">
+      <section className="relative z-10 mx-auto max-w-2xl">
         <h1 className="text-2xl font-bold sm:text-3xl">Book Provider</h1>
 
         {!showPayment ? (
@@ -137,7 +133,7 @@ export default function BookProviderPage() {
                   placeholder="07XXXXXXXX or +254XXXXXXXXX"
                   className="mt-2 w-full rounded-md border px-3 py-2"
                 />
-                <span className="text-xs text-slate-500">Enter the MPesa number you'll use to pay</span>
+                <span className="text-xs text-slate-500">Enter the MPesa number you&apos;ll use to pay</span>
               </label>
             </div>
 

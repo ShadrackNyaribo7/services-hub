@@ -1,6 +1,5 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import BackgroundLottieServer from "@/components/BackgroundLottieServer";
 
 export const dynamic = "force-dynamic";
 
@@ -34,8 +33,7 @@ export default async function AdminBookingsPage() {
 
   return (
     <main className="min-h-screen bg-slate-50 px-6 py-10 text-slate-950">
-      <BackgroundLottieServer />
-      <section className="mx-auto max-w-5xl">
+      <section className="relative z-10 mx-auto max-w-5xl">
         <h1 className="text-3xl font-bold">Booking Requests</h1>
 
         <div className="mt-8 space-y-4">

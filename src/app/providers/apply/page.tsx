@@ -1,11 +1,10 @@
 "use client";
 
 import { FormEvent } from "react";
-import LottieAnimation from "@/app/component/lottie";
 import { useProviderApplication } from "@/hooks/useProviderApplication";
 
 export default function ProviderApplyPage() {
-  const { submitApplication, isLoading, error, success, reset } = useProviderApplication();
+  const { submitApplication, isLoading, error, success } = useProviderApplication();
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -32,9 +31,8 @@ export default function ProviderApplyPage() {
 
   return (
     <main className="min-h-screen bg-black = 900 px-4 py-10 text-slate-950 sm:px-6">
-       <LottieAnimation src="/services.lottie" top="0" left="0" width="100%" height="100vh" zIndex={1} opacity="0.3" scale="1.5" />
-      <section className="mx-auto max-w-5xl"></section>
-      <section className="mx-auto max-w-2xl">
+      <section className="relative z-10 mx-auto max-w-5xl"></section>
+      <section className="relative z-10 mx-auto max-w-2xl">
         <h1 className="text-2xl font-bold text-emerald-400 sm:text-3xl">Provider Application</h1>
         <p className="mt-2 font-bold text-emerald-400">
           Submit your details for review before offering services.

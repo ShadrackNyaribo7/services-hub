@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import Lottie from "lottie-react";
 import { DotLottieReact } from "@lottiefiles/dotlottie-react";
 
@@ -33,7 +33,17 @@ interface LottieAnimationProps {
   scale?: string;
   loop?: boolean;
   autoplay?: boolean;
+  dataTestId?: string;
 }
+
+type AnimationLoadState =
+  | { src: string; mode: "json"; data: object; error: false }
+  | { src: string; mode: "dotlottie"; data: null; error: false }
+  | { src: string; mode: null; data: null; error: true };
+
+const subscribeToClient = () => () => {};
+const getClientSnapshot = () => true;
+const getServerSnapshot = () => false;
 
 const LottieAnimation = ({
   src = "/rocket.json",
@@ -47,43 +57,89 @@ const LottieAnimation = ({
   scale = "1",
   loop = true,
   autoplay = true,
+  dataTestId,
 }: LottieAnimationProps) => {
-  const [isClient, setIsClient] = useState(false);
-  const [animationData, setAnimationData] = useState<object | null>(null);
-  const [loadError, setLoadError] = useState(false);
+  const isClient = useSyncExternalStore(
+    subscribeToClient,
+    getClientSnapshot,
+    getServerSnapshot,
+  );
+  const [loadState, setLoadState] = useState<AnimationLoadState | null>(null);
 
   useEffect(() => {
-    setIsClient(true);
-  }, []);
+    if (!src) return;
 
-  // For .json files, fetch and parse the animation data for lottie-react
-  useEffect(() => {
-    if (!src || !src.endsWith(".json")) return;
+    const controller = new AbortController();
+    const normalizedSrc = src.toLowerCase();
 
-    fetch(src)
-      .then((res) => {
-        if (!res.ok) throw new Error(`Failed to load ${src}`);
-        return res.json();
-      })
-      .then((data) => {
-        setAnimationData(data);
-        setLoadError(false);
-      })
-      .catch((err) => {
+    const loadAnimation = async () => {
+      try {
+        if (normalizedSrc.endsWith(".json")) {
+          const res = await fetch(src, { signal: controller.signal });
+          if (!res.ok) throw new Error(`Failed to load ${src}`);
+          setLoadState({
+            src,
+            mode: "json",
+            data: await res.json(),
+            error: false,
+          });
+          return;
+        }
+
+        if (normalizedSrc.endsWith(".lottie")) {
+          const res = await fetch(src, { signal: controller.signal });
+          if (!res.ok) throw new Error(`Failed to load ${src}`);
+
+          const buffer = await res.arrayBuffer();
+          const bytes = new Uint8Array(buffer);
+          const isZipArchive = bytes[0] === 0x50 && bytes[1] === 0x4b;
+
+          if (isZipArchive) {
+            setLoadState({ src, mode: "dotlottie", data: null, error: false });
+            return;
+          }
+
+          const text = new TextDecoder().decode(buffer).trimStart();
+          if (text.startsWith("{") || text.startsWith("[")) {
+            setLoadState({
+              src,
+              mode: "json",
+              data: JSON.parse(text),
+              error: false,
+            });
+            return;
+          }
+        }
+
+        throw new Error(`Unsupported Lottie animation format: ${src}`);
+      } catch (err) {
+        if (controller.signal.aborted) return;
         console.error("LottieAnimation: Failed to load animation:", err);
-        setLoadError(true);
-      });
+        setLoadState({ src, mode: null, data: null, error: true });
+      }
+    };
+
+    loadAnimation();
+
+    return () => controller.abort();
   }, [src]);
 
   if (!isClient) {
     return null;
   }
 
-  const isJsonFile = src.endsWith(".json");
-  const isLottieFile = src.endsWith(".lottie");
+  const isLoadedSource = loadState?.src === src;
+  const animationData = isLoadedSource && loadState.mode === "json"
+    ? loadState.data
+    : null;
+  const renderMode = isLoadedSource ? loadState.mode : null;
+  const loadError = isLoadedSource ? loadState.error : false;
 
   return (
     <div
+      data-testid={dataTestId}
+      data-animation-src={src}
+      aria-hidden="true"
       style={{
         position: "fixed",
         top: top,
@@ -100,7 +156,7 @@ const LottieAnimation = ({
         overflow: "hidden",
       }}
     >
-      {isJsonFile && animationData && (
+      {renderMode === "json" && animationData && (
         <Lottie
           animationData={animationData}
           loop={loop}
@@ -113,13 +169,13 @@ const LottieAnimation = ({
           }}
         />
       )}
-      {isJsonFile && !animationData && !loadError && null}
-      {isJsonFile && loadError && (
+      {!renderMode && !loadError && null}
+      {loadError && (
         <div style={{ color: "red", fontSize: "12px" }}>
           Animation failed to load
         </div>
       )}
-      {isLottieFile && (
+      {renderMode === "dotlottie" && (
         <DotLottieReact
           src={src}
           loop={loop}

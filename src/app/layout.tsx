@@ -11,6 +11,7 @@ import Image from "next/image";
 import Link from "next/link";
 import OfflineBanner from "@/components/OfflineBanner";
 import MobileNav from "@/components/MobileNav";
+import PageAnimations from "@/components/PageAnimations";
 import PWAInstallButton from "@/components/PWAInstallButton";
 import "./globals.css";
 
@@ -64,8 +65,9 @@ export default function RootLayout({
           <link rel="apple-touch-icon" href="/icon-192x192.png" />
         </head>
         <body className="min-h-full flex flex-col">
+          <PageAnimations />
           <OfflineBanner />
-          <header className="bg-gray-900 border-b border-gray-800">
+          <header className="relative z-10 bg-gray-900 border-b border-gray-800">
             <div className="mx-auto max-w-6xl px-4 py-4 sm:px-6 flex items-center justify-between">
               <Link href="/" className="flex items-center">
                 <Image 
@@ -81,7 +83,7 @@ export default function RootLayout({
           </header>
           <PWAInstallButton />
           {children}
-          <footer className="bg-gray-800 text-slate-300 py-8 mt-auto">
+          <footer className="relative z-10 bg-gray-800 text-slate-300 py-8 mt-auto">
             <div className="mx-auto max-w-6xl px-4 sm:px-6">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                 <div>
@@ -99,17 +101,17 @@ export default function RootLayout({
                 <div>
                   <h3 className="text-base font-semibold text-white mb-4 sm:text-lg">Quick Links</h3>
                   <ul className="space-y-2 text-xs sm:text-sm">
-                    <li><a href="/services" className="hover:text-emerald-400 transition">Find Services</a></li>
-                    <li><a href="/providers/apply" className="hover:text-emerald-400 transition">Become a Provider</a></li>
-                    <li><a href="/admin/bookings" className="hover:text-emerald-400 transition">Admin Dashboard</a></li>
+                    <li><Link href="/services" className="hover:text-emerald-400 transition">Find Services</Link></li>
+                    <li><Link href="/providers/apply" className="hover:text-emerald-400 transition">Become a Provider</Link></li>
+                    <li><Link href="/admin/bookings" className="hover:text-emerald-400 transition">Admin Dashboard</Link></li>
                   </ul>
                 </div>
                 <div>
                   <h3 className="text-base font-semibold text-white mb-4 sm:text-lg">Legal</h3>
                   <ul className="space-y-2 text-xs sm:text-sm">
-                    <li><a href="/privacy" className="hover:text-emerald-400 transition">Privacy Policy</a></li>
-                    <li><a href="/refund" className="hover:text-emerald-400 transition">Refund Policy</a></li>
-                    <li><a href="/terms" className="hover:text-emerald-400 transition">Terms of Service</a></li>
+                    <li><Link href="/privacy" className="hover:text-emerald-400 transition">Privacy Policy</Link></li>
+                    <li><Link href="/refund" className="hover:text-emerald-400 transition">Refund Policy</Link></li>
+                    <li><Link href="/terms" className="hover:text-emerald-400 transition">Terms of Service</Link></li>
                   </ul>
                 </div>
               </div>

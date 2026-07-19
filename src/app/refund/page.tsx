@@ -1,12 +1,9 @@
 "use client";
 
-import BackgroundLottie from "@/components/BackgroundLottie";
-
 export default function RefundPolicy() {
   return (
     <div className="min-h-screen bg-gray-900 text-slate-50 py-12 px-6">
-      <BackgroundLottie />
-      <div className="mx-auto max-w-4xl">
+      <div className="relative z-10 mx-auto max-w-4xl">
         <h1 className="text-4xl font-bold mb-8">Refund Policy</h1>
         
         <div className="space-y-6 text-slate-300">
@@ -60,7 +57,7 @@ export default function RefundPolicy() {
             <ul className="list-disc ml-6 mt-2">
               <li>Refunds are initiated from our business account to the original payment number</li>
               <li>M-Pesa transaction fees may apply to refund transactions</li>
-              <li>Processing time depends on M-Pesa's system (typically 1-3 business days)</li>
+              <li>Processing time depends on M-Pesa&apos;s system (typically 1-3 business days)</li>
               <li>You will receive an SMS confirmation when the refund is processed</li>
             </ul>
           </section>
