@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import {
   cleanLocationLabel,
   getCountySearchTerms,
+  KENYA_COUNTIES,
   resolveKenyaCounty,
 } from "@/lib/location";
 import ServicesLocationFilter from "@/components/ServicesLocationFilter";
@@ -15,6 +16,10 @@ type ServicesPageProps = {
     county?: string | string[] | undefined;
   }>;
 };
+
+type ProviderResult = Prisma.ProviderProfileGetPayload<{
+  include: { user: true };
+}>;
 
 function getFirstSearchParam(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;
@@ -45,6 +50,89 @@ function getLocationApiEnabled() {
   );
 }
 
+async function ProviderResults({
+  selectedCounty,
+}: {
+  selectedCounty: string | null;
+}) {
+  const where: Prisma.ProviderProfileWhereInput = {
+    verificationStatus: "APPROVED",
+  };
+  const countyWhere = selectedCounty ? buildCountyWhere(selectedCounty) : [];
+
+  if (countyWhere.length > 0) {
+    where.OR = countyWhere;
+  }
+
+  let providers: ProviderResult[];
+
+  try {
+    providers = await prisma.providerProfile.findMany({
+      where,
+      include: {
+        user: true,
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
+  } catch (error) {
+    console.error("Could not load provider results:", error);
+
+    return (
+      <div className="mt-6 rounded-md border border-amber-500/50 bg-amber-950/40 p-5 text-amber-100">
+        Provider results could not load right now.
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <p className="mt-6 text-sm text-slate-300">
+        {selectedCounty
+          ? `${providers.length} provider${
+              providers.length === 1 ? "" : "s"
+            } in ${selectedCounty}`
+          : `${providers.length} approved provider${
+              providers.length === 1 ? "" : "s"
+            }`}
+      </p>
+
+      <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {providers.length > 0 ? (
+          providers.map((provider) => (
+            <div
+              key={provider.id}
+              className="rounded-md border border-slate-700 bg-slate-950/80 p-4 text-slate-100 sm:p-5"
+            >
+              <h2 className="text-lg font-semibold sm:text-xl">
+                {provider.user.name}
+              </h2>
+              <p className="mt-2 text-sm text-slate-300 sm:text-base">
+                {provider.serviceCategory}
+              </p>
+              <p className="text-sm text-slate-400 sm:text-base">
+                {provider.county}
+              </p>
+
+              <Link
+                href={`/services/${provider.id}`}
+                className="mt-4 inline-block min-h-[44px] rounded-md bg-emerald-700 px-4 py-2 font-semibold text-white"
+              >
+                View Provider
+              </Link>
+            </div>
+          ))
+        ) : (
+          <div className="rounded-md border border-slate-700 bg-slate-950/80 p-5 text-slate-200 sm:col-span-2 lg:col-span-3">
+            No approved providers found for this location.
+          </div>
+        )}
+      </div>
+    </>
+  );
+}
+
 export default async function ServicesPage({
   searchParams,
 }: ServicesPageProps) {
@@ -55,43 +143,8 @@ export default async function ServicesPage({
   const selectedCounty = requestedCounty
     ? (resolveKenyaCounty(requestedCounty) ?? requestedCounty)
     : null;
-  const where: Prisma.ProviderProfileWhereInput = {
-    verificationStatus: "APPROVED",
-  };
-  const countyWhere = selectedCounty ? buildCountyWhere(selectedCounty) : [];
-
-  if (countyWhere.length > 0) {
-    where.OR = countyWhere;
-  }
-
-  const providers = await prisma.providerProfile.findMany({
-    where,
-    include: {
-      user: true,
-    },
-    orderBy: {
-      createdAt: "desc",
-    },
-  });
-
-  const allApprovedProviders = await prisma.providerProfile.findMany({
-    where: {
-      verificationStatus: "APPROVED",
-    },
-    select: {
-      county: true,
-    },
-  });
-
   const availableCounties = Array.from(
-    new Set(
-      allApprovedProviders
-        .map(
-          (provider) => resolveKenyaCounty(provider.county) ?? provider.county,
-        )
-        .map(cleanLocationLabel)
-        .filter(Boolean),
-    ),
+    new Set(KENYA_COUNTIES.map(cleanLocationLabel)),
   ).sort((left, right) => left.localeCompare(right));
 
   return (
@@ -105,42 +158,10 @@ export default async function ServicesPage({
           key={selectedCounty ?? "all-locations"}
           availableCounties={availableCounties}
           locationApiEnabled={getLocationApiEnabled()}
-          providerCount={providers.length}
           selectedCounty={selectedCounty}
-          totalProviderCount={allApprovedProviders.length}
         />
 
-        <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {providers.length > 0 ? (
-            providers.map((provider) => (
-              <div
-                key={provider.id}
-                className="rounded-md border border-slate-700 bg-slate-950/80 p-4 text-slate-100 sm:p-5"
-              >
-                <h2 className="text-lg font-semibold sm:text-xl">
-                  {provider.user.name}
-                </h2>
-                <p className="mt-2 text-sm text-slate-300 sm:text-base">
-                  {provider.serviceCategory}
-                </p>
-                <p className="text-sm text-slate-400 sm:text-base">
-                  {provider.county}
-                </p>
-
-                <Link
-                  href={`/services/${provider.id}`}
-                  className="mt-4 inline-block min-h-[44px] rounded-md bg-emerald-700 px-4 py-2 font-semibold text-white"
-                >
-                  View Provider
-                </Link>
-              </div>
-            ))
-          ) : (
-            <div className="rounded-md border border-slate-700 bg-slate-950/80 p-5 text-slate-200 sm:col-span-2 lg:col-span-3">
-              No approved providers found for this location.
-            </div>
-          )}
-        </div>
+        <ProviderResults selectedCounty={selectedCounty} />
       </section>
     </main>
   );

@@ -7,9 +7,7 @@ import { resolveKenyaCounty } from "@/lib/location";
 type ServicesLocationFilterProps = {
   availableCounties: string[];
   locationApiEnabled: boolean;
-  providerCount: number;
   selectedCounty: string | null;
-  totalProviderCount: number;
 };
 
 type LocationResolveResponse = {
@@ -41,9 +39,7 @@ async function resolveLocation(searchParams: URLSearchParams) {
 export default function ServicesLocationFilter({
   availableCounties,
   locationApiEnabled,
-  providerCount,
   selectedCounty,
-  totalProviderCount,
 }: ServicesLocationFilterProps) {
   const router = useRouter();
   const [locationInput, setLocationInput] = useState(selectedCounty ?? "");
@@ -52,15 +48,11 @@ export default function ServicesLocationFilter({
 
   const resultLabel = useMemo(() => {
     if (!selectedCounty) {
-      return `${totalProviderCount} provider${
-        totalProviderCount === 1 ? "" : "s"
-      } available`;
+      return "All locations";
     }
 
-    return `${providerCount} provider${providerCount === 1 ? "" : "s"} in ${
-      selectedCounty
-    }`;
-  }, [providerCount, selectedCounty, totalProviderCount]);
+    return `Filtering by ${selectedCounty}`;
+  }, [selectedCounty]);
 
   function navigateToCounty(county: string | null) {
     const params = new URLSearchParams(window.location.search);
