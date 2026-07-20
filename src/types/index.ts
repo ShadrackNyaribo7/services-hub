@@ -17,6 +17,7 @@ export interface DocumentVerificationRequest {
   idNumber: string;
   policeClearanceNumber: string;
   serviceCategory?: string;
+  certificationNumber?: string;
 }
 
 export interface DocumentVerificationResponse {
@@ -36,6 +37,7 @@ export interface VerificationStatusResponse {
   documents: {
     idNumber: string;
     policeClearanceNumber: string;
+    certificationNumber?: string;
   };
 }
 
@@ -47,6 +49,25 @@ export interface ProviderApplication {
   serviceCategory: string;
   policeClearanceNumber?: string;
   IDnumber?: string;
+  idNumber?: string;
+  certificationNumber?: string;
+}
+
+export interface ProviderQualificationCheckResponse {
+  accepted: boolean;
+  autoApproved: boolean;
+  recommendedStatus: string;
+  adminNotes: string;
+  blockingErrors: string[];
+  checks: {
+    name: string;
+    label: string;
+    valid: boolean;
+    reason: string;
+    provider: string;
+    requiresManualReview: boolean;
+    details?: Record<string, unknown>;
+  }[];
 }
 
 export interface ProviderApplicationResponse {
@@ -60,8 +81,14 @@ export interface ProviderApplicationResponse {
       county: string;
       serviceCategory: string;
       policeClearanceNumber?: string;
+      idNumber?: string;
+      certificationNumber?: string | null;
+      verificationStatus: string;
+      adminNotes?: string | null;
     };
   };
+  message?: string;
+  qualificationCheck?: ProviderQualificationCheckResponse;
 }
 
 // Booking types

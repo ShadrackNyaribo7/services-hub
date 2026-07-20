@@ -4,7 +4,7 @@ import { FormEvent } from "react";
 import { useProviderApplication } from "@/hooks/useProviderApplication";
 
 export default function ProviderApplyPage() {
-  const { submitApplication, isLoading, error, success } = useProviderApplication();
+  const { submitApplication, isLoading, error, success, message } = useProviderApplication();
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -17,8 +17,8 @@ export default function ProviderApplyPage() {
       county: formData.get("county") as string,
       serviceCategory: formData.get("serviceCategory") as string,
       policeClearanceNumber: formData.get("policeClearanceNumber") as string,
-      IDnumber: formData.get("ID number") as string,
-      
+      idNumber: formData.get("idNumber") as string,
+      certificationNumber: formData.get("certificationNumber") as string,
     };
 
     const result = await submitApplication(application);
@@ -30,7 +30,7 @@ export default function ProviderApplyPage() {
   }
 
   return (
-    <main className="min-h-screen bg-black = 900 px-4 py-10 text-slate-950 sm:px-6">
+    <main className="min-h-screen bg-slate-950 px-4 py-10 text-slate-950 sm:px-6">
       <section className="relative z-10 mx-auto max-w-5xl"></section>
       <section className="relative z-10 mx-auto max-w-2xl">
         <h1 className="text-2xl font-bold text-emerald-400 sm:text-3xl">Provider Application</h1>
@@ -38,7 +38,7 @@ export default function ProviderApplyPage() {
           Submit your details for review before offering services.
         </p>
 
-        <form onSubmit={handleSubmit} className="mt-8 space-y-5 rounded-md border bg-white = 900 p-4 sm:p-6">
+        <form onSubmit={handleSubmit} className="mt-8 space-y-5 rounded-md border bg-white p-4 sm:p-6">
           <label className="block">
             <span className="font-medium text-emerald-400">Full name</span>
             <input name="fullName" required className="mt-2 w-full rounded-md border px-3 py-2 min-h-[44px]" />
@@ -56,7 +56,7 @@ export default function ProviderApplyPage() {
 
           <label className="block">
             <span className="font-medium text-emerald-400">Service</span>
-            <select name="serviceCategory" required className="mt-2 w-full rounded-md border px-3 py-2 bg-grey = 900 text-black-400 min-h-[44px]">
+            <select name="serviceCategory" required className="mt-2 w-full rounded-md border bg-white px-3 py-2 text-slate-950 min-h-[44px]">
               <option value="Cleaning">Cleaning</option>
               <option value="Electrical">Electrical</option>
               <option value="Plumber">Plumber</option>
@@ -66,12 +66,20 @@ export default function ProviderApplyPage() {
 
            <label className="block">
             <span className="font-medium text-emerald-400">ID number</span>
-            <input name="ID number" className="mt-2 w-full rounded-md border px-3 py-2 min-h-[44px]" />
+            <input name="idNumber" required inputMode="numeric" className="mt-2 w-full rounded-md border px-3 py-2 min-h-[44px]" />
           </label>
 
           <label className="block">
             <span className="font-medium text-emerald-400">Police Clearance Certificate number</span>
-            <input name="policeClearanceNumber" className="mt-2 w-full rounded-md border px-3 py-2 min-h-[44px]" />
+            <input name="policeClearanceNumber" required className="mt-2 w-full rounded-md border px-3 py-2 min-h-[44px]" />
+          </label>
+
+          <label className="block">
+            <span className="font-medium text-emerald-400">Professional certificate/license number</span>
+            <input name="certificationNumber" className="mt-2 w-full rounded-md border px-3 py-2 min-h-[44px]" />
+            <span className="mt-1 block text-sm text-slate-600">
+              Required for electrical, plumbing, and mechanic providers.
+            </span>
           </label>
 
           <button disabled={isLoading} className="w-full min-h-[44px] rounded-md bg-emerald-700 px-5 py-3 font-semibold text-white disabled:bg-slate-400">
@@ -80,7 +88,7 @@ export default function ProviderApplyPage() {
 
           {success && (
             <p className="text-sm font-medium text-emerald-700">
-              Application submitted successfully. Await admin review.
+              {message ?? "Application submitted successfully. Await admin review."}
             </p>
           )}
           {error && (

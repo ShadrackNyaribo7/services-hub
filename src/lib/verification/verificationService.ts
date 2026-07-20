@@ -1,7 +1,7 @@
 // Document Verification Service
 // Supports multiple third-party verification providers
 
-interface VerificationResult {
+export interface VerificationResult {
   valid: boolean;
   reason?: string;
   provider?: string;

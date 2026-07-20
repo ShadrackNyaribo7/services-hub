@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@clerk/nextjs/server";
-import { verificationService } from "@/lib/verification/verificationService";
+import { runProviderQualificationCheck } from "@/lib/verification/qualificationService";
 
 export async function POST(request: Request) {
   const { userId } = await auth();
@@ -15,7 +15,7 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json();
-    const { idNumber, policeClearanceNumber } = body;
+    const { idNumber, policeClearanceNumber, certificationNumber } = body;
 
     // Validate required fields
     if (!idNumber || !policeClearanceNumber) {
@@ -28,6 +28,7 @@ export async function POST(request: Request) {
     // Get user's provider profile
     const providerProfile = await prisma.providerProfile.findUnique({
       where: { userId },
+      include: { user: true },
     });
 
     if (!providerProfile) {
@@ -37,11 +38,25 @@ export async function POST(request: Request) {
       );
     }
 
-    // Perform third-party verification
-    const verificationResults = await verificationService.verifyAllDocuments({
+    const qualificationCheck = await runProviderQualificationCheck({
+      fullName: providerProfile.user.name,
+      serviceCategory: providerProfile.serviceCategory,
       idNumber,
-      policeClearanceNumber
+      policeClearanceNumber,
+      certificationNumber:
+        certificationNumber ?? providerProfile.certificationNumber,
     });
+
+    if (!qualificationCheck.accepted) {
+      return NextResponse.json(
+        {
+          error: qualificationCheck.blockingErrors.join(" "),
+          qualificationErrors: qualificationCheck.blockingErrors,
+          qualificationCheck,
+        },
+        { status: 422 },
+      );
+    }
 
     // Update provider profile with document details and verification status
     const updatedProfile = await prisma.providerProfile.update({
@@ -49,25 +64,25 @@ export async function POST(request: Request) {
       data: {
         idNumber,
         policeClearanceNumber,
-        verificationStatus: verificationResults.overallValid ? "APPROVED" : "PENDING",
-        adminNotes: verificationResults.overallValid
-          ? "All documents verified successfully"
-          : `Verification pending: ID=${verificationResults.idVerification.reason}, Police=${verificationResults.policeClearanceVerification.reason}`,
+        certificationNumber:
+          certificationNumber ?? providerProfile.certificationNumber,
+        verificationStatus: qualificationCheck.recommendedStatus,
+        adminNotes: qualificationCheck.adminNotes,
       },
     });
 
     // Return detailed verification results
     return NextResponse.json({
-      message: verificationResults.overallValid
+      message: qualificationCheck.autoApproved
         ? "Documents verified successfully"
-        : "Documents submitted with some verification issues",
+        : "Documents submitted. Admin verification is required before approval.",
       verificationStatus: updatedProfile.verificationStatus,
-      verificationResults: {
-        idVerification: verificationResults.idVerification,
-        policeClearanceVerification: verificationResults.policeClearanceVerification,
-      },
+      qualificationCheck,
+      verificationResults: Object.fromEntries(
+        qualificationCheck.checks.map((check) => [check.name, check]),
+      ),
       providerProfile: updatedProfile,
-    }, { status: verificationResults.overallValid ? 200 : 207 }); // 207 for partial success
+    }, { status: qualificationCheck.autoApproved ? 200 : 207 }); // 207 for accepted but pending review
   } catch (error) {
     console.error("Document verification error:", error);
     return NextResponse.json(
@@ -109,6 +124,7 @@ export async function GET() {
       documents: {
         idNumber: providerProfile.idNumber ? "Provided" : "Missing",
         policeClearanceNumber: providerProfile.policeClearanceNumber ? "Provided" : "Missing",
+        certificationNumber: providerProfile.certificationNumber ? "Provided" : "Missing",
       },
     });
   } catch (error) {

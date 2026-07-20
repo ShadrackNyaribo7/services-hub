@@ -1,5 +1,6 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
+import { runProviderQualificationCheck } from "@/lib/verification/qualificationService";
 import { currentUser } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 
@@ -22,7 +23,7 @@ async function requireAdmin() {
 
 async function updateProviderStatus(formData: FormData) {
   "use server";
-await requireAdmin();
+  await requireAdmin();
   const id = String(formData.get("id"));
   const status = String(formData.get("status"));
 
@@ -30,10 +31,52 @@ await requireAdmin();
     return;
   }
 
-  await prisma.providerProfile.update({
-    where: { id },
-    data: { verificationStatus: status },
-  });
+  if (status === "REJECTED") {
+    await prisma.providerProfile.update({
+      where: { id },
+      data: { verificationStatus: status },
+    });
+  }
+
+  if (status === "APPROVED") {
+    const provider = await prisma.providerProfile.findUnique({
+      where: { id },
+      include: { user: true },
+    });
+
+    if (!provider) {
+      return;
+    }
+
+    const qualificationCheck = await runProviderQualificationCheck({
+      fullName: provider.user.name,
+      serviceCategory: provider.serviceCategory,
+      idNumber: provider.idNumber,
+      policeClearanceNumber: provider.policeClearanceNumber,
+      certificationNumber: provider.certificationNumber,
+    });
+
+    if (!qualificationCheck.accepted) {
+      await prisma.providerProfile.update({
+        where: { id },
+        data: {
+          verificationStatus: "PENDING",
+          adminNotes: `Approval blocked:\n${qualificationCheck.adminNotes}`,
+        },
+      });
+
+      revalidatePath("/admin/providers");
+      return;
+    }
+
+    await prisma.providerProfile.update({
+      where: { id },
+      data: {
+        verificationStatus: "APPROVED",
+        adminNotes: `Manual admin approval recorded.\n${qualificationCheck.adminNotes}`,
+      },
+    });
+  }
 
   revalidatePath("/admin/providers");
 }
@@ -62,6 +105,20 @@ export default async function AdminProvidersPage() {
               <p>County: {provider.county}</p>
               <p>Category: {provider.serviceCategory}</p>
               <p>Status: {provider.verificationStatus}</p>
+              <p>ID: {provider.idNumber ? "Provided" : "Missing"}</p>
+              <p>
+                Police clearance:{" "}
+                {provider.policeClearanceNumber ? "Provided" : "Missing"}
+              </p>
+              <p>
+                Professional certificate:{" "}
+                {provider.certificationNumber ? "Provided" : "Missing"}
+              </p>
+              {provider.adminNotes && (
+                <pre className="mt-3 whitespace-pre-wrap rounded-md bg-slate-100 p-3 text-sm text-slate-700">
+                  {provider.adminNotes}
+                </pre>
+              )}
 
               <div className="mt-4 flex gap-3">
                 <form action={updateProviderStatus}>
