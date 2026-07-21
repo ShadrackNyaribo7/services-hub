@@ -3,13 +3,9 @@
 
 // Get a free hosted Postgres database in seconds: `npx create-db`
 
-
-
-
-  generator client {
+generator client {
   provider = "prisma-client-js"
 }
-
 
 datasource db {
   provider = "postgresql"
@@ -26,61 +22,72 @@ model User {
 }
 
 model ProviderProfile {
-  id                    String             @id @default(cuid())
-  userId                String             @unique
-  county                String
-  serviceCategory       String
-  policeClearanceNumber String?
-  idNumber              String?
-  certificationNumber   String?
-  verificationStatus    VerificationStatus @default(PENDING)
-  adminNotes            String?
-  createdAt             DateTime           @default(now())
-  bookings              Booking[]
-  ratings               Rating[]
-  user                  User               @relation(fields: [userId], references: [id])
+  id                           String             @id @default(cuid())
+  userId                       String             @unique
+  county                       String
+  serviceCategory              String
+  policeClearanceNumber        String?
+  idNumber                     String?
+  certificationNumber          String?
+  certificationIssuer          String?
+  certificationName            String?
+  credentialVerificationLevel  String?
+  credentialVerificationMethod String?
+  credentialVerificationSource String?
+  credentialVerifiedAt         DateTime?
+  credentialManualReference    String?
+  verificationStatus           VerificationStatus @default(PENDING)
+  adminNotes                   String?
+  createdAt                    DateTime           @default(now())
+  bookings                     Booking[]
+  ratings                      Rating[]
+  user                         User               @relation(fields: [userId], references: [id])
 
   // Rating aggregation fields
-  averageRating         Float?             @default(0)
-  totalRatings          Int                @default(0)
-  totalFiveStar         Int                @default(0)
-  totalFourStar         Int                @default(0)
-  totalThreeStar        Int                @default(0)
-  totalTwoStar          Int                @default(0)
-  totalOneStar          Int                @default(0)
-  rankingTier           RankingTier        @default(NEW)
+  averageRating  Float?      @default(0)
+  totalRatings   Int         @default(0)
+  totalFiveStar  Int         @default(0)
+  totalFourStar  Int         @default(0)
+  totalThreeStar Int         @default(0)
+  totalTwoStar   Int         @default(0)
+  totalOneStar   Int         @default(0)
+  rankingTier    RankingTier @default(NEW)
 }
 
 model Booking {
-  id                 String          @id @default(cuid())
-  providerProfileId  String
-  clientName         String
-  clientPhone        String
-  county             String
-  scheduledDate      DateTime
-  notes              String?
-  status             BookingStatus   @default(REQUESTED)
-  createdAt          DateTime        @default(now())
-  amount             Float?
-  paymentStatus      PaymentStatus   @default(PENDING)
-  mpesaPhoneNumber   String?
-  mpesaTransactionId String?
-  mpesaReceiptNumber String?
-  paymentMethod      String?         @default("MPESA")
-  paymentCreatedAt   DateTime?
-  developerFee       Float?          @default(0)
-  providerAmount     Float?          @default(0)
-  commissionRate     Float?          @default(0.12)
-  serviceConfirmed   Boolean         @default(false)
-  serviceConfirmedAt DateTime?
-  clientConfirmed   Boolean         @default(false)
-  clientConfirmedAt DateTime?
-  suspiciousActivity Boolean         @default(false)
-  securityFlag       String?
-  escrowReleased     Boolean         @default(false)
-  ratingEligibleAt   DateTime?
-  providerProfile    ProviderProfile @relation(fields: [providerProfileId], references: [id])
-  rating             Rating?
+  id                     String          @id @default(cuid())
+  providerProfileId      String
+  clientName             String
+  clientPhone            String
+  county                 String
+  scheduledDate          DateTime
+  notes                  String?
+  status                 BookingStatus   @default(REQUESTED)
+  createdAt              DateTime        @default(now())
+  amount                 Float?
+  paymentStatus          PaymentStatus   @default(PENDING)
+  mpesaPhoneNumber       String?
+  mpesaTransactionId     String?
+  mpesaReceiptNumber     String?
+  mpesaCheckoutRequestId String?         @unique
+  mpesaMerchantRequestId String?
+  paymentMethod          String?         @default("MPESA")
+  paymentCreatedAt       DateTime?
+  developerFee           Float?          @default(0)
+  grossPlatformFee       Float?          @default(0)
+  paymentProcessingFee   Float?          @default(0)
+  providerAmount         Float?          @default(0)
+  commissionRate         Float?          @default(0.12)
+  serviceConfirmed       Boolean         @default(false)
+  serviceConfirmedAt     DateTime?
+  clientConfirmed        Boolean         @default(false)
+  clientConfirmedAt      DateTime?
+  suspiciousActivity     Boolean         @default(false)
+  securityFlag           String?
+  escrowReleased         Boolean         @default(false)
+  ratingEligibleAt       DateTime?
+  providerProfile        ProviderProfile @relation(fields: [providerProfileId], references: [id])
+  rating                 Rating?
 }
 
 enum UserRole {
@@ -112,29 +119,28 @@ enum PaymentStatus {
 }
 
 model Rating {
-  id                  String       @id @default(cuid())
-  bookingId           String       @unique
-  providerProfileId   String
-  clientPhone         String
-  rating              Int          // 1-5 stars
-  comment             String?
-  ratingLegitimacyScore Float       @default(0) // 0-1 score for legitimacy
-  automatedFlags      String[]     @default([]) // Flags for suspicious patterns
-  createdAt           DateTime     @default(now())
-  ratingEligibleAt    DateTime     // When rating became eligible (after dual confirmation)
-  ratedAt             DateTime     @default(now())
-  booking             Booking      @relation(fields: [bookingId], references: [id])
-  providerProfile     ProviderProfile @relation(fields: [providerProfileId], references: [id])
-  
+  id                    String          @id @default(cuid())
+  bookingId             String          @unique
+  providerProfileId     String
+  clientPhone           String
+  rating                Int // 1-5 stars
+  comment               String?
+  ratingLegitimacyScore Float           @default(0) // 0-1 score for legitimacy
+  automatedFlags        String[]        @default([]) // Flags for suspicious patterns
+  createdAt             DateTime        @default(now())
+  ratingEligibleAt      DateTime // When rating became eligible (after dual confirmation)
+  ratedAt               DateTime        @default(now())
+  booking               Booking         @relation(fields: [bookingId], references: [id])
+  providerProfile       ProviderProfile @relation(fields: [providerProfileId], references: [id])
+
   @@index([providerProfileId])
   @@index([bookingId])
 }
 
 enum RankingTier {
-  NEW            // 0-5 ratings
-  EMERGING       // 6-20 ratings
-  ESTABLISHED    // 21-50 ratings
-  TOP_RATED      // 51-100 ratings
-  ELITE          // 100+ ratings
+  NEW // 0-5 ratings
+  EMERGING // 6-20 ratings
+  ESTABLISHED // 21-50 ratings
+  TOP_RATED // 51-100 ratings
+  ELITE // 100+ ratings
 }
-

@@ -6,13 +6,13 @@ export default function MobileNav() {
   const [isOpen, setIsOpen] = useState(false);
   
   return (
-
-  
-    <nav className="md:hidden">
+    <>
       <button 
         onClick={() => setIsOpen(!isOpen)} 
-        className="min-h-[44px] min-w-[44px] p-4 text-emerald-400"
+        className="min-h-[44px] min-w-[44px] p-4 text-emerald-400 md:hidden"
         aria-label="Toggle menu"
+        aria-controls="mobile-navigation-menu"
+        aria-expanded={isOpen}
       >
         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           {isOpen ? (
@@ -23,7 +23,11 @@ export default function MobileNav() {
         </svg>
       </button>
       {isOpen && (
-        <div className="absolute top-16 left-0 right-0 bg-gray-900 shadow-lg border-t border-gray-700">
+        <nav
+          id="mobile-navigation-menu"
+          className="basis-full overflow-hidden rounded-md border border-gray-700 bg-gray-950 text-slate-200 shadow-lg md:hidden"
+          aria-label="Mobile navigation"
+        >
           <Link 
             href="/services" 
             className="block px-6 py-4 text-slate-200 hover:bg-gray-800 hover:text-emerald-400 transition"
@@ -45,8 +49,8 @@ export default function MobileNav() {
           >
             Sign In
           </Link>
-        </div>
+        </nav>
       )}
-    </nav>
+    </>
   );
 }

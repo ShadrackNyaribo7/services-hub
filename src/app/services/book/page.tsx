@@ -11,7 +11,8 @@ export default function BookProviderPage() {
   const { initiatePayment, isLoading: paymentLoading, error: paymentError, success: paymentSuccess, reset: paymentReset } = useMpesaPayment();
   const [bookingId, setBookingId] = useState<string | null>(null);
   const [showPayment, setShowPayment] = useState(false);
-  const [amount, setAmount] = useState<number>(100); // Default service fee
+  const [amount, setAmount] = useState<number>(1000);
+  const [paymentPhone, setPaymentPhone] = useState("");
 
   async function handleBookingSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -32,10 +33,8 @@ export default function BookProviderPage() {
     const result = await createBooking(booking);
 
     if (result) {
-      // Extract booking ID from response
-      
-      const mockBookingId = "booking-" + Date.now();
-      setBookingId(mockBookingId);
+      setBookingId(result.booking.id);
+      setPaymentPhone(booking.mpesaPhoneNumber);
       setShowPayment(true);
     }
   }
@@ -53,9 +52,7 @@ export default function BookProviderPage() {
 
     const paymentResult = await initiatePayment({
       phoneNumber,
-      amount,
       bookingId,
-      accountReference: `BOOKING-${bookingId}`,
     });
 
     if (paymentResult) {
@@ -100,27 +97,22 @@ export default function BookProviderPage() {
             <div className="border-t pt-5">
               <label className="block">
                 <span className="font-medium">Payment Method</span>
-                <select
-                  value={showPayment ? "mpesa" : "none"}
-                  onChange={(e) => {
-                    if (e.target.value === "mpesa") {
-                      setShowPayment(true);
-                    }
-                  }}
-                  className="mt-2 w-full rounded-md border px-3 py-2"
-                >
-                  <option value="none">Select payment method</option>
-                  <option value="mpesa">MPesa (Mobile Money)</option>
-                </select>
+                <input
+                  value="MPesa (Mobile Money)"
+                  readOnly
+                  className="mt-2 w-full rounded-md border bg-slate-100 px-3 py-2"
+                />
               </label>
 
               <label className="mt-4 block">
-                <span className="font-medium">Service fee (KES)</span>
+                <span className="font-medium">Service price (KES)</span>
                 <input
                   type="number"
                   value={amount}
                   onChange={(e) => setAmount(Number(e.target.value))}
-                  min="1"
+                  min="500"
+                  max="150000"
+                  step="1"
                   required
                   className="mt-2 w-full rounded-md border px-3 py-2"
                 />
@@ -130,6 +122,7 @@ export default function BookProviderPage() {
                 <span className="font-medium">MPesa Phone Number</span>
                 <input
                   name="mpesaPhoneNumber"
+                  required
                   placeholder="07XXXXXXXX or +254XXXXXXXXX"
                   className="mt-2 w-full rounded-md border px-3 py-2"
                 />
@@ -166,6 +159,7 @@ export default function BookProviderPage() {
                 <input
                   name="phoneNumber"
                   required
+                  defaultValue={paymentPhone}
                   placeholder="07XXXXXXXX or +254XXXXXXXXX"
                   className="mt-2 w-full rounded-md border px-3 py-2 min-h-[44px]"
                 />

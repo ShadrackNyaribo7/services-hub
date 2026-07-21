@@ -1,10 +1,12 @@
 "use client";
 
-import { FormEvent } from "react";
+import { FormEvent, useState } from "react";
 import { useProviderApplication } from "@/hooks/useProviderApplication";
 
 export default function ProviderApplyPage() {
   const { submitApplication, isLoading, error, success, message } = useProviderApplication();
+  const [serviceCategory, setServiceCategory] = useState("Cleaning");
+  const credentialRequired = serviceCategory !== "Cleaning";
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -19,12 +21,15 @@ export default function ProviderApplyPage() {
       policeClearanceNumber: formData.get("policeClearanceNumber") as string,
       idNumber: formData.get("idNumber") as string,
       certificationNumber: formData.get("certificationNumber") as string,
+      certificationIssuer: formData.get("certificationIssuer") as string,
+      certificationName: formData.get("certificationName") as string,
     };
 
     const result = await submitApplication(application);
 
     if (result) {
       event.currentTarget.reset();
+      setServiceCategory("Cleaning");
       // Success message will be handled by the success state
     }
   }
@@ -56,7 +61,13 @@ export default function ProviderApplyPage() {
 
           <label className="block">
             <span className="font-medium text-emerald-400">Service</span>
-            <select name="serviceCategory" required className="mt-2 w-full rounded-md border bg-white px-3 py-2 text-slate-950 min-h-[44px]">
+            <select
+              name="serviceCategory"
+              required
+              value={serviceCategory}
+              onChange={(event) => setServiceCategory(event.target.value)}
+              className="mt-2 min-h-[44px] w-full rounded-md border bg-white px-3 py-2 text-slate-950"
+            >
               <option value="Cleaning">Cleaning</option>
               <option value="Electrical">Electrical</option>
               <option value="Plumber">Plumber</option>
@@ -76,10 +87,46 @@ export default function ProviderApplyPage() {
 
           <label className="block">
             <span className="font-medium text-emerald-400">Professional certificate/license number</span>
-            <input name="certificationNumber" className="mt-2 w-full rounded-md border px-3 py-2 min-h-[44px]" />
+            <input
+              name="certificationNumber"
+              required={credentialRequired}
+              maxLength={64}
+              placeholder={serviceCategory === "Electrical" ? "EPRA/EW/12345" : undefined}
+              className="mt-2 min-h-[44px] w-full rounded-md border px-3 py-2"
+            />
             <span className="mt-1 block text-sm text-slate-600">
-              Required for electrical, plumbing, and mechanic providers.
+              Electrical providers must use their EPRA electrical-worker licence number.
             </span>
+          </label>
+
+          <label className="block">
+            <span className="font-medium text-emerald-400">Issuing institution or regulator</span>
+            <input
+              name="certificationIssuer"
+              required={credentialRequired}
+              maxLength={160}
+              list="credential-issuers"
+              placeholder="EPRA, NITA, KNEC, TVET CDACC..."
+              className="mt-2 min-h-[44px] w-full rounded-md border px-3 py-2"
+            />
+            <datalist id="credential-issuers">
+              <option value="Energy and Petroleum Regulatory Authority" />
+              <option value="National Industrial Training Authority" />
+              <option value="Kenya National Examinations Council" />
+              <option value="TVET Curriculum Development Assessment and Certification Council" />
+              <option value="National Construction Authority" />
+            </datalist>
+          </label>
+
+          <label className="block">
+            <span className="font-medium text-emerald-400">Exact qualification or licence name</span>
+            <input
+              name="certificationName"
+              required={credentialRequired}
+              maxLength={160}
+              placeholder={serviceCategory === "Electrical" ? "Electrical Worker Licence" : "As printed on the certificate"}
+              className="mt-2 min-h-[44px] w-full rounded-md border px-3 py-2"
+            />
           </label>
 
           <button disabled={isLoading} className="w-full min-h-[44px] rounded-md bg-emerald-700 px-5 py-3 font-semibold text-white disabled:bg-slate-400">

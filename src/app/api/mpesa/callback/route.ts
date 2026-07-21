@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { MpesaCallbackRequest } from "@/types";
+import {
+  calculateMarketplaceProfit,
+  isExactPaymentAmount,
+} from "@/lib/pricing/profitEngine";
 
 export async function POST(request: Request) {
   try {
@@ -44,8 +48,7 @@ export async function POST(request: Request) {
     if (!bookingId) {
       const booking = await prisma.booking.findFirst({
         where: {
-          // You might need to store checkoutRequestID in the booking model
-          // For now, we'll try to find by other means
+          mpesaCheckoutRequestId: CheckoutRequestID,
         },
       });
       
@@ -62,36 +65,50 @@ export async function POST(request: Request) {
       );
     }
 
-    // Update booking based on payment result
-    const paymentStatus = ResultCode === 0 ? 'COMPLETED' : 'FAILED';
+    const existingBooking = await prisma.booking.findUnique({
+      where: { id: bookingId },
+      include: {
+        providerProfile: {
+          select: {
+            serviceCategory: true,
+          },
+        },
+      },
+    });
 
-    // Commission model: Tiered commission for optimal market penetration
-    // Growth strategy: Start low to attract providers, increase as platform matures
-    // Phase 1 (0-1000 transactions): 12% - Market penetration
-    // Phase 2 (1000-5000 transactions): 15% - Growth stage
-    // Phase 3 (5000+ transactions): 18% - Mature platform
-    // Current phase: 12% commission
-    const COMMISSION_RATE = 0.12; // 12% developer commission
-    const developerFee = paymentAmount > 0 ? paymentAmount * COMMISSION_RATE : 0;
-    const providerAmount = paymentAmount > 0 ? paymentAmount * (1 - COMMISSION_RATE) : 0;
+    if (!existingBooking) {
+      console.error('Booking no longer exists for callback:', bookingId);
+      return NextResponse.json(
+        { ResultCode: 1, ResultDesc: 'Booking not found' },
+        { status: 404 }
+      );
+    }
+
+    const paymentMatchesBooking = isExactPaymentAmount(existingBooking.amount, paymentAmount);
+    const paymentStatus = ResultCode === 0 && paymentMatchesBooking ? 'COMPLETED' : 'FAILED';
+    const profit =
+      paymentAmount > 0 && paymentMatchesBooking
+        ? calculateMarketplaceProfit({
+            amount: paymentAmount,
+            serviceCategory: existingBooking.providerProfile.serviceCategory,
+          })
+        : null;
 
     // Security measures to prevent payment undercutting
     // Check for suspicious payment patterns
     let suspiciousActivity = false;
-    let securityFlag = null;
+    let securityFlag: string | null = null;
 
     // Flag 1: Payment amount significantly different from expected patterns
-    if (paymentAmount > 0 && paymentAmount < 100) {
+    if (!paymentMatchesBooking) {
+      suspiciousActivity = true;
+      securityFlag = 'PAYMENT_AMOUNT_MISMATCH';
+    } else if (paymentAmount > 0 && paymentAmount < 500) {
       suspiciousActivity = true;
       securityFlag = 'LOW_AMOUNT_RISK';
     }
 
     // Flag 2: Multiple recent bookings from same client/provider combo (potential bypass)
-    // First get the booking to check provider patterns
-    const existingBooking = await prisma.booking.findUnique({
-      where: { id: bookingId }
-    });
-
     const recentBookings = await prisma.booking.findMany({
       where: {
         OR: [
@@ -117,10 +134,12 @@ export async function POST(request: Request) {
         mpesaTransactionId: mpesaTransactionId,
         mpesaReceiptNumber: mpesaReceiptNumber,
         paymentCreatedAt: new Date(),
-        amount: paymentAmount > 0 ? paymentAmount : undefined,
-        developerFee: developerFee > 0 ? developerFee : undefined,
-        providerAmount: providerAmount > 0 ? providerAmount : undefined,
-        commissionRate: COMMISSION_RATE,
+        amount: paymentAmount > 0 && paymentMatchesBooking ? paymentAmount : undefined,
+        developerFee: profit ? profit.developerFee : undefined,
+        providerAmount: profit ? profit.providerAmount : undefined,
+        commissionRate: profit ? profit.commissionRate : undefined,
+        grossPlatformFee: profit ? profit.grossPlatformFee : undefined,
+        paymentProcessingFee: profit ? profit.paymentProcessingFee : undefined,
         status: paymentStatus === 'COMPLETED' ? 'ACCEPTED' : 'REQUESTED',
         // Security measures
         suspiciousActivity: suspiciousActivity,
@@ -132,8 +151,10 @@ export async function POST(request: Request) {
 
     console.log(`Booking ${bookingId} payment updated to ${paymentStatus}`, {
       totalAmount: paymentAmount,
-      developerFee: developerFee,
-      providerAmount: providerAmount,
+      developerFee: profit?.developerFee ?? 0,
+      providerAmount: profit?.providerAmount ?? 0,
+      grossPlatformFee: profit?.grossPlatformFee ?? 0,
+      paymentProcessingFee: profit?.paymentProcessingFee ?? 0,
       securityFlags: {
         suspiciousActivity,
         securityFlag,

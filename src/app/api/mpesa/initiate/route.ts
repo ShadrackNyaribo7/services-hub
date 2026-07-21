@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { mpesaService } from "@/lib/mpesa/mpesaService";
 import { prisma } from "@/lib/prisma";
+import { validateServiceAmount } from "@/lib/pricing/profitEngine";
 
 export async function POST(request: Request) {
   try {
@@ -15,12 +16,12 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { phoneNumber, amount, bookingId } = body;
+    const { phoneNumber, bookingId } = body;
 
     // Validate required fields
-    if (!phoneNumber || amount === undefined || amount === null || !bookingId) {
+    if (!phoneNumber || !bookingId) {
       return NextResponse.json(
-        { error: "Missing required fields: phoneNumber, amount, bookingId" },
+        { error: "Missing required fields: phoneNumber, bookingId" },
         { status: 400 }
       );
     }
@@ -29,14 +30,6 @@ export async function POST(request: Request) {
     if (!mpesaService.validatePhoneNumber(phoneNumber)) {
       return NextResponse.json(
         { error: "Invalid phone number format. Use Kenyan format (07XXXXXXXX or +254XXXXXXXXX)" },
-        { status: 400 }
-      );
-    }
-
-    // Validate amount
-    if (typeof amount !== 'number' || amount <= 0) {
-      return NextResponse.json(
-        { error: "Amount must be greater than 0" },
         { status: 400 }
       );
     }
@@ -53,10 +46,15 @@ export async function POST(request: Request) {
       );
     }
 
+    const amountValidation = validateServiceAmount(booking.amount);
+    if (!amountValidation.valid) {
+      return NextResponse.json({ error: amountValidation.error }, { status: 400 });
+    }
+
     // Initiate MPesa STK Push
     const mpesaResponse = await mpesaService.initiateSTKPush(
       phoneNumber,
-      amount,
+      amountValidation.amount,
       bookingId
     );
 
@@ -64,8 +62,10 @@ export async function POST(request: Request) {
     await prisma.booking.update({
       where: { id: bookingId },
       data: {
-        amount: amount,
+        amount: amountValidation.amount,
         mpesaPhoneNumber: mpesaService.formatPhoneNumber(phoneNumber),
+        mpesaCheckoutRequestId: mpesaResponse.checkoutRequestID,
+        mpesaMerchantRequestId: mpesaResponse.merchantRequestID,
         paymentMethod: "MPESA",
         paymentStatus: "PENDING",
       },

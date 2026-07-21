@@ -18,6 +18,8 @@ export interface DocumentVerificationRequest {
   policeClearanceNumber: string;
   serviceCategory?: string;
   certificationNumber?: string;
+  certificationIssuer?: string;
+  certificationName?: string;
 }
 
 export interface DocumentVerificationResponse {
@@ -38,6 +40,8 @@ export interface VerificationStatusResponse {
     idNumber: string;
     policeClearanceNumber: string;
     certificationNumber?: string;
+    certificationIssuer?: string;
+    certificationName?: string;
   };
 }
 
@@ -51,6 +55,8 @@ export interface ProviderApplication {
   IDnumber?: string;
   idNumber?: string;
   certificationNumber?: string;
+  certificationIssuer?: string;
+  certificationName?: string;
 }
 
 export interface ProviderQualificationCheckResponse {
@@ -83,6 +89,13 @@ export interface ProviderApplicationResponse {
       policeClearanceNumber?: string;
       idNumber?: string;
       certificationNumber?: string | null;
+      certificationIssuer?: string | null;
+      certificationName?: string | null;
+      credentialVerificationLevel?: string | null;
+      credentialVerificationMethod?: string | null;
+      credentialVerificationSource?: string | null;
+      credentialVerifiedAt?: Date | string | null;
+      credentialManualReference?: string | null;
       verificationStatus: string;
       adminNotes?: string | null;
     };
@@ -120,6 +133,21 @@ export interface BookingResponse {
     mpesaReceiptNumber?: string;
     paymentMethod?: string;
     paymentCreatedAt?: Date;
+    developerFee?: number | null;
+    grossPlatformFee?: number | null;
+    paymentProcessingFee?: number | null;
+    providerAmount?: number | null;
+    commissionRate?: number | null;
+  };
+  profit?: {
+    serviceAmount: number;
+    commissionRate: number;
+    grossPlatformFee: number;
+    paymentProcessingFee: number;
+    developerFee: number;
+    providerAmount: number;
+    effectivePlatformTakeRate: number;
+    profitabilityIndex: number;
   };
 }
 
@@ -135,9 +163,9 @@ export interface Provider {
 // MPesa types
 export interface MpesaPaymentRequest {
   phoneNumber: string;
-  amount: number;
+  amount?: number;
   bookingId: string;
-  accountReference: string;
+  accountReference?: string;
 }
 
 export interface MpesaPaymentResponse {

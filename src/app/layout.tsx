@@ -68,7 +68,7 @@ export default function RootLayout({
           <PageAnimations />
           <OfflineBanner />
           <header className="relative z-10 bg-gray-900 border-b border-gray-800">
-            <div className="mx-auto max-w-6xl px-4 py-4 sm:px-6 flex items-center justify-between">
+            <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-y-3 px-4 py-4 sm:px-6">
               <Link href="/" className="flex items-center">
                 <Image 
                   src="/Creative Idea.svg" 

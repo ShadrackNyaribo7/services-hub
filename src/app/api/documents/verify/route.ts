@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@clerk/nextjs/server";
-import { runProviderQualificationCheck } from "@/lib/verification/qualificationService";
+import {
+  getCredentialEvidenceSummary,
+  runProviderQualificationCheck,
+} from "@/lib/verification/qualificationService";
 
 export async function POST(request: Request) {
   const { userId } = await auth();
@@ -15,7 +18,13 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json();
-    const { idNumber, policeClearanceNumber, certificationNumber } = body;
+    const {
+      idNumber,
+      policeClearanceNumber,
+      certificationNumber,
+      certificationIssuer,
+      certificationName,
+    } = body;
 
     // Validate required fields
     if (!idNumber || !policeClearanceNumber) {
@@ -38,13 +47,24 @@ export async function POST(request: Request) {
       );
     }
 
+    const resolvedCertificationNumber = String(
+      certificationNumber ?? providerProfile.certificationNumber ?? "",
+    ).trim();
+    const resolvedCertificationIssuer = String(
+      certificationIssuer ?? providerProfile.certificationIssuer ?? "",
+    ).trim();
+    const resolvedCertificationName = String(
+      certificationName ?? providerProfile.certificationName ?? "",
+    ).trim();
+
     const qualificationCheck = await runProviderQualificationCheck({
       fullName: providerProfile.user.name,
       serviceCategory: providerProfile.serviceCategory,
       idNumber,
       policeClearanceNumber,
-      certificationNumber:
-        certificationNumber ?? providerProfile.certificationNumber,
+      certificationNumber: resolvedCertificationNumber,
+      certificationIssuer: resolvedCertificationIssuer,
+      certificationName: resolvedCertificationName,
     });
 
     if (!qualificationCheck.accepted) {
@@ -58,14 +78,22 @@ export async function POST(request: Request) {
       );
     }
 
+    const credentialEvidence = getCredentialEvidenceSummary(qualificationCheck);
+
     // Update provider profile with document details and verification status
     const updatedProfile = await prisma.providerProfile.update({
       where: { userId },
       data: {
         idNumber,
         policeClearanceNumber,
-        certificationNumber:
-          certificationNumber ?? providerProfile.certificationNumber,
+        certificationNumber: resolvedCertificationNumber || null,
+        certificationIssuer: resolvedCertificationIssuer || null,
+        certificationName: resolvedCertificationName || null,
+        credentialVerificationLevel: credentialEvidence.level,
+        credentialVerificationMethod: credentialEvidence.method,
+        credentialVerificationSource: credentialEvidence.source,
+        credentialVerifiedAt: credentialEvidence.verifiedAt,
+        credentialManualReference: null,
         verificationStatus: qualificationCheck.recommendedStatus,
         adminNotes: qualificationCheck.adminNotes,
       },
@@ -125,6 +153,8 @@ export async function GET() {
         idNumber: providerProfile.idNumber ? "Provided" : "Missing",
         policeClearanceNumber: providerProfile.policeClearanceNumber ? "Provided" : "Missing",
         certificationNumber: providerProfile.certificationNumber ? "Provided" : "Missing",
+        certificationIssuer: providerProfile.certificationIssuer ? "Provided" : "Missing",
+        certificationName: providerProfile.certificationName ? "Provided" : "Missing",
       },
     });
   } catch (error) {

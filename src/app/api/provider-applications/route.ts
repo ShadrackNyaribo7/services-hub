@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@clerk/nextjs/server";
-import { runProviderQualificationCheck } from "@/lib/verification/qualificationService";
+import {
+  getCredentialEvidenceSummary,
+  runProviderQualificationCheck,
+} from "@/lib/verification/qualificationService";
 
 export async function POST(request: Request) {
   const { userId } = await auth();
@@ -25,6 +28,8 @@ export async function POST(request: Request) {
       IDnumber,
       idNumber,
       certificationNumber,
+      certificationIssuer,
+      certificationName,
     } = body;
     const fullName = String(rawFullName ?? "").trim();
     const phone = String(rawPhone ?? "").trim();
@@ -36,6 +41,12 @@ export async function POST(request: Request) {
     ).trim();
     const submittedCertificationNumber = String(
       certificationNumber ?? "",
+    ).trim();
+    const submittedCertificationIssuer = String(
+      certificationIssuer ?? "",
+    ).trim();
+    const submittedCertificationName = String(
+      certificationName ?? "",
     ).trim();
 
     if (!fullName || !phone || !county || !serviceCategory) {
@@ -62,6 +73,8 @@ export async function POST(request: Request) {
       idNumber: submittedIdNumber,
       policeClearanceNumber: submittedPoliceClearanceNumber,
       certificationNumber: submittedCertificationNumber,
+      certificationIssuer: submittedCertificationIssuer,
+      certificationName: submittedCertificationName,
     });
 
     if (!qualificationCheck.accepted) {
@@ -75,12 +88,21 @@ export async function POST(request: Request) {
       );
     }
 
+    const credentialEvidence = getCredentialEvidenceSummary(qualificationCheck);
+
     const providerProfileData = {
       county,
       serviceCategory,
       policeClearanceNumber: submittedPoliceClearanceNumber,
       idNumber: submittedIdNumber,
       certificationNumber: submittedCertificationNumber || null,
+      certificationIssuer: submittedCertificationIssuer || null,
+      certificationName: submittedCertificationName || null,
+      credentialVerificationLevel: credentialEvidence.level,
+      credentialVerificationMethod: credentialEvidence.method,
+      credentialVerificationSource: credentialEvidence.source,
+      credentialVerifiedAt: credentialEvidence.verifiedAt,
+      credentialManualReference: null,
       verificationStatus: qualificationCheck.recommendedStatus,
       adminNotes: qualificationCheck.adminNotes,
     };

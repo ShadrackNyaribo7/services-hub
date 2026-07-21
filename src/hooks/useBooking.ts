@@ -21,7 +21,7 @@ export function useBooking() {
       }
 
       setSuccess(true);
-      return true;
+      return response.data ?? null;
     } catch (err) {
       setError(err instanceof Error ? err.message : "An unexpected error occurred");
       return false;

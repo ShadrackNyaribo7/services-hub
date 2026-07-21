@@ -1,4 +1,5 @@
 import { verificationService, type VerificationResult } from "./verificationService";
+import { verifyProviderCredential } from "./credentialVerificationService";
 
 export type VerificationStatusValue = "PENDING" | "APPROVED" | "REJECTED" | "SUSPENDED";
 
@@ -8,6 +9,8 @@ export type ProviderQualificationInput = {
   idNumber?: string | null;
   policeClearanceNumber?: string | null;
   certificationNumber?: string | null;
+  certificationIssuer?: string | null;
+  certificationName?: string | null;
 };
 
 export type QualificationCheckName =
@@ -32,6 +35,14 @@ export type ProviderQualificationResult = {
   adminNotes: string;
   blockingErrors: string[];
   checks: QualificationCheck[];
+};
+
+export type CredentialEvidenceSummary = {
+  level: string | null;
+  method: string | null;
+  source: string | null;
+  verifiedAt: Date | null;
+  authoritative: boolean;
 };
 
 type ServiceCertificationRequirement = {
@@ -117,10 +128,6 @@ export function validateCertificationNumberFormat(certificationNumber: string) {
     return "Certification number can only contain letters, numbers, spaces, hyphens, slashes, and periods.";
   }
 
-  if (!/[A-Za-z]/.test(normalized) || !/\d/.test(normalized)) {
-    return "Certification number must include both letters and numbers.";
-  }
-
   if (hasPlaceholderValue(normalized)) {
     return "Certification number looks like a placeholder.";
   }
@@ -157,13 +164,19 @@ async function verifyServiceCertification({
   fullName,
   serviceCategory,
   certificationNumber,
+  certificationIssuer,
+  certificationName,
 }: {
   fullName: string;
   serviceCategory: string;
   certificationNumber?: string | null;
+  certificationIssuer?: string | null;
+  certificationName?: string | null;
 }): Promise<QualificationCheck> {
   const requirement = getServiceCertificationRequirement(serviceCategory);
   const normalizedCertificationNumber = cleanValue(certificationNumber);
+  const normalizedCertificationIssuer = cleanValue(certificationIssuer);
+  const normalizedCertificationName = cleanValue(certificationName);
 
   if (!normalizedCertificationNumber) {
     return {
@@ -193,65 +206,57 @@ async function verifyServiceCertification({
     };
   }
 
-  const professionalBodyEnabled =
-    process.env.ENABLE_PROFESSIONAL_BODY_VERIFICATION === "true";
-  const apiBaseUrl = process.env.PROFESSIONAL_BODY_API_URL;
-  const apiKey = process.env.PROFESSIONAL_BODY_API_KEY;
-
-  if (professionalBodyEnabled && apiBaseUrl && apiKey) {
-    try {
-      const response = await fetch(`${apiBaseUrl}/certifications/verify`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-          fullName,
-          serviceCategory,
-          certificationNumber: normalizedCertificationNumber,
-        }),
-      });
-      const result = (await response.json()) as {
-        valid?: boolean;
-        reason?: string;
-        details?: Record<string, unknown>;
-      };
-
-      return {
-        name: "serviceCertification",
-        label: requirement.label,
-        valid: response.ok && result.valid === true,
-        reason:
-          result.reason ??
-          (response.ok
-            ? "Professional certification verified."
-            : "Professional certification verification failed."),
-        provider: "ProfessionalBody",
-        requiresManualReview: false,
-        details: result.details,
-      };
-    } catch {
-      return {
-        name: "serviceCertification",
-        label: requirement.label,
-        valid: true,
-        reason:
-          "Professional certification service unavailable; manual admin verification required.",
-        provider: "ProfessionalBody",
-        requiresManualReview: true,
-      };
-    }
+  if (!normalizedCertificationIssuer || !normalizedCertificationName) {
+    return {
+      name: "serviceCertification",
+      label: requirement.label,
+      valid: false,
+      reason:
+        "Credential issuer and exact qualification or licence name are required.",
+      provider: "QualificationRules",
+      requiresManualReview: false,
+    };
   }
+
+  if (
+    normalizedCertificationIssuer.length > 160 ||
+    normalizedCertificationName.length > 160
+  ) {
+    return {
+      name: "serviceCertification",
+      label: requirement.label,
+      valid: false,
+      reason: "Credential issuer and qualification name must be 160 characters or fewer.",
+      provider: "QualificationRules",
+      requiresManualReview: false,
+    };
+  }
+
+  const credentialEvidence = await verifyProviderCredential({
+    fullName,
+    serviceCategory,
+    certificationNumber: normalizedCertificationNumber,
+    certificationIssuer: normalizedCertificationIssuer,
+    certificationName: normalizedCertificationName,
+  });
 
   return {
     name: "serviceCertification",
     label: requirement.label,
-    valid: true,
-    reason:
-      "Certification format accepted; configure a professional-body API or complete manual admin verification before approval.",
-    provider: "QualificationRules",
-    requiresManualReview: requirement.required,
+    valid: credentialEvidence.level !== "REJECTED",
+    reason: credentialEvidence.reason,
+    provider: credentialEvidence.source,
+    requiresManualReview: credentialEvidence.level !== "AUTHORITATIVE",
+    details: {
+      evidenceLevel: credentialEvidence.level,
+      verificationMethod: credentialEvidence.method,
+      sourceUrl: credentialEvidence.sourceUrl,
+      checkedAt: credentialEvidence.checkedAt,
+      holderMatched: credentialEvidence.holderMatched,
+      issuerMatched: credentialEvidence.issuerMatched,
+      qualificationMatched: credentialEvidence.qualificationMatched,
+      ...credentialEvidence.details,
+    },
   };
 }
 
@@ -313,6 +318,42 @@ export async function runProviderQualificationCheck(
     ),
     certificationVerification,
   ]);
+}
+
+export function getCredentialEvidenceSummary(
+  result: ProviderQualificationResult,
+): CredentialEvidenceSummary {
+  const check = result.checks.find(
+    (qualificationCheck) => qualificationCheck.name === "serviceCertification",
+  );
+  const level =
+    typeof check?.details?.evidenceLevel === "string"
+      ? check.details.evidenceLevel
+      : null;
+  const method =
+    typeof check?.details?.verificationMethod === "string"
+      ? check.details.verificationMethod
+      : null;
+  const source =
+    typeof check?.details?.sourceUrl === "string"
+      ? check.details.sourceUrl
+      : null;
+  const checkedAt =
+    typeof check?.details?.checkedAt === "string"
+      ? new Date(check.details.checkedAt)
+      : null;
+  const verifiedAt =
+    level === "AUTHORITATIVE" && checkedAt && !Number.isNaN(checkedAt.valueOf())
+      ? checkedAt
+      : null;
+
+  return {
+    level,
+    method,
+    source,
+    verifiedAt,
+    authoritative: level === "AUTHORITATIVE",
+  };
 }
 
 function buildQualificationResult(
