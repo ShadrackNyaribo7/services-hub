@@ -206,9 +206,9 @@ export interface MpesaCallbackRequest {
     stkCallback: {
       MerchantRequestID: string;
       CheckoutRequestID: string;
-      ResultCode: number;
+      ResultCode: number | string;
       ResultDesc: string;
-      CallbackMetadata: {
+      CallbackMetadata?: {
         Item: {
           Name: string;
           Value: string | number;

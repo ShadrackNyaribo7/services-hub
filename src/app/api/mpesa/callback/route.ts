@@ -9,19 +9,44 @@ import {
 export async function POST(request: Request) {
   try {
     const body: MpesaCallbackRequest = await request.json();
-    const callback = body.Body.stkCallback;
+    const callback = body?.Body?.stkCallback;
 
-    const { MerchantRequestID, CheckoutRequestID, ResultCode, ResultDesc, CallbackMetadata } = callback;
+    if (
+      !callback ||
+      !callback.MerchantRequestID ||
+      !callback.CheckoutRequestID ||
+      callback.ResultCode === undefined
+    ) {
+      return NextResponse.json(
+        { ResultCode: 1, ResultDesc: "Invalid callback payload" },
+        { status: 400 },
+      );
+    }
 
-    console.log('MPesa Callback received:', {
+    const {
       MerchantRequestID,
       CheckoutRequestID,
       ResultCode,
       ResultDesc,
+      CallbackMetadata,
+    } = callback;
+    const normalizedResultCode = Number(ResultCode);
+
+    if (!Number.isInteger(normalizedResultCode)) {
+      return NextResponse.json(
+        { ResultCode: 1, ResultDesc: "Invalid callback result code" },
+        { status: 400 },
+      );
+    }
+
+    console.log('MPesa Callback received:', {
+      MerchantRequestID,
+      CheckoutRequestID,
+      ResultCode: normalizedResultCode,
+      ResultDesc,
     });
 
-    // Extract booking ID from account reference if available
-    let bookingId = '';
+    let metadataBookingId = '';
     let mpesaReceiptNumber = '';
     let mpesaTransactionId = '';
     let paymentAmount = 0;
@@ -31,7 +56,7 @@ export async function POST(request: Request) {
       for (const item of CallbackMetadata.Item) {
         if (item.Name === 'AccountReference') {
           const accountRef = String(item.Value);
-          bookingId = accountRef.replace('BOOKING-', '');
+          metadataBookingId = accountRef.replace('BOOKING-', '');
         } else if (item.Name === 'MpesaReceiptNumber') {
           mpesaReceiptNumber = String(item.Value);
         } else if (item.Name === 'TransactionID') {
@@ -44,29 +69,10 @@ export async function POST(request: Request) {
       }
     }
 
-    // Find booking by checkout request ID if booking ID not found
-    if (!bookingId) {
-      const booking = await prisma.booking.findFirst({
-        where: {
-          mpesaCheckoutRequestId: CheckoutRequestID,
-        },
-      });
-      
-      if (booking) {
-        bookingId = booking.id;
-      }
-    }
-
-    if (!bookingId) {
-      console.error('Could not find booking for callback:', callback);
-      return NextResponse.json(
-        { ResultCode: 1, ResultDesc: 'Booking not found' },
-        { status: 404 }
-      );
-    }
-
     const existingBooking = await prisma.booking.findUnique({
-      where: { id: bookingId },
+      where: {
+        mpesaCheckoutRequestId: CheckoutRequestID,
+      },
       include: {
         providerProfile: {
           select: {
@@ -77,17 +83,38 @@ export async function POST(request: Request) {
     });
 
     if (!existingBooking) {
-      console.error('Booking no longer exists for callback:', bookingId);
+      console.error('Could not find booking for callback:', callback);
       return NextResponse.json(
         { ResultCode: 1, ResultDesc: 'Booking not found' },
         { status: 404 }
       );
     }
 
-    const paymentMatchesBooking = isExactPaymentAmount(existingBooking.amount, paymentAmount);
-    const paymentStatus = ResultCode === 0 && paymentMatchesBooking ? 'COMPLETED' : 'FAILED';
+    if (metadataBookingId && metadataBookingId !== existingBooking.id) {
+      console.error("Callback account reference does not match checkout request");
+      return NextResponse.json(
+        { ResultCode: 1, ResultDesc: "Callback reference mismatch" },
+        { status: 400 },
+      );
+    }
+
+    const bookingId = existingBooking.id;
+
+    if (existingBooking.paymentStatus === "COMPLETED") {
+      return NextResponse.json({
+        ResultCode: 0,
+        ResultDesc: "Payment already processed",
+      });
+    }
+
+    const callbackSucceeded = normalizedResultCode === 0;
+    const paymentMatchesBooking =
+      callbackSucceeded &&
+      isExactPaymentAmount(existingBooking.amount, paymentAmount);
+    const paymentStatus =
+      callbackSucceeded && paymentMatchesBooking ? 'COMPLETED' : 'FAILED';
     const profit =
-      paymentAmount > 0 && paymentMatchesBooking
+      paymentStatus === "COMPLETED"
         ? calculateMarketplaceProfit({
             amount: paymentAmount,
             serviceCategory: existingBooking.providerProfile.serviceCategory,
@@ -100,26 +127,30 @@ export async function POST(request: Request) {
     let securityFlag: string | null = null;
 
     // Flag 1: Payment amount significantly different from expected patterns
-    if (!paymentMatchesBooking) {
+    if (callbackSucceeded && !paymentMatchesBooking) {
       suspiciousActivity = true;
       securityFlag = 'PAYMENT_AMOUNT_MISMATCH';
-    } else if (paymentAmount > 0 && paymentAmount < 500) {
+    } else if (callbackSucceeded && paymentAmount < 500) {
       suspiciousActivity = true;
       securityFlag = 'LOW_AMOUNT_RISK';
     }
 
-    // Flag 2: Multiple recent bookings from same client/provider combo (potential bypass)
-    const recentBookings = await prisma.booking.findMany({
-      where: {
-        OR: [
-          { clientPhone: phoneNumber },
-          ...(existingBooking?.providerProfileId ? [{ providerProfileId: existingBooking.providerProfileId }] : [])
-        ],
-        createdAt: {
-          gte: new Date(Date.now() - 24 * 60 * 60 * 1000) // Last 24 hours
-        }
-      }
-    });
+    const recentBookings =
+      callbackSucceeded && paymentMatchesBooking
+        ? await prisma.booking.findMany({
+            where: {
+              OR: [
+                ...(phoneNumber ? [{ clientPhone: phoneNumber }] : []),
+                ...(existingBooking.providerProfileId
+                  ? [{ providerProfileId: existingBooking.providerProfileId }]
+                  : []),
+              ],
+              createdAt: {
+                gte: new Date(Date.now() - 24 * 60 * 60 * 1000),
+              },
+            },
+          })
+        : [];
 
     if (recentBookings.length > 5) {
       suspiciousActivity = true;
@@ -131,8 +162,8 @@ export async function POST(request: Request) {
       where: { id: bookingId },
       data: {
         paymentStatus: paymentStatus,
-        mpesaTransactionId: mpesaTransactionId,
-        mpesaReceiptNumber: mpesaReceiptNumber,
+        mpesaTransactionId: mpesaTransactionId || undefined,
+        mpesaReceiptNumber: mpesaReceiptNumber || undefined,
         paymentCreatedAt: new Date(),
         amount: paymentAmount > 0 && paymentMatchesBooking ? paymentAmount : undefined,
         developerFee: profit ? profit.developerFee : undefined,
@@ -164,9 +195,8 @@ export async function POST(request: Request) {
 
     // Additional security: Log if suspicious activity detected
     if (suspiciousActivity) {
-      console.warn(`⚠️ SECURITY ALERT: Suspicious activity detected for booking ${bookingId}`, {
+      console.warn(`Security alert: suspicious activity detected for booking ${bookingId}`, {
         flag: securityFlag,
-        phoneNumber,
         amount: paymentAmount,
         recentBookingsCount: recentBookings.length
       });

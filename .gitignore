@@ -75,3 +75,7 @@ test-*.js
 !src/lib/verification/__tests__/qualificationService.test.ts
 !src/lib/pricing/__tests__/
 !src/lib/pricing/__tests__/profitEngine.test.ts
+!src/__tests__/
+!src/__tests__/mpesaIntegration.test.ts
+!src/app/api/kora/__tests__/
+!src/app/api/kora/__tests__/disabledRoutes.test.ts
