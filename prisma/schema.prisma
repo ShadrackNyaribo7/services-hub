@@ -36,6 +36,17 @@ model ProviderProfile {
   credentialVerificationSource String?
   credentialVerifiedAt         DateTime?
   credentialManualReference    String?
+  verificationConsentAt        DateTime?
+  identityVerificationLevel    String?
+  identityVerificationMethod   String?
+  identityVerificationSource   String?
+  identityVerifiedAt           DateTime?
+  identityVerifiedBy           String?
+  policeVerificationLevel      String?
+  policeVerificationMethod     String?
+  policeVerificationSource     String?
+  policeVerifiedAt             DateTime?
+  policeVerifiedBy             String?
   verificationStatus           VerificationStatus @default(PENDING)
   adminNotes                   String?
   createdAt                    DateTime           @default(now())

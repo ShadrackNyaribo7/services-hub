@@ -78,6 +78,7 @@ export default function TermsOfService() {
               <li>Identity verification</li>
               <li>Police clearance checks where applicable</li>
               <li>Professional body verification</li>
+              <li>Approval requires recorded official evidence; format checks alone are not verification</li>
               <li>However, we cannot guarantee the completeness or accuracy of all verifications</li>
             </ul>
           </section>

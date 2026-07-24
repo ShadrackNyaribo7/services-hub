@@ -24,6 +24,7 @@ export async function POST(request: Request) {
       certificationNumber,
       certificationIssuer,
       certificationName,
+      verificationConsent,
     } = body;
 
     // Validate required fields
@@ -44,6 +45,16 @@ export async function POST(request: Request) {
       return NextResponse.json(
         { error: "Provider profile not found." },
         { status: 404 }
+      );
+    }
+
+    if (verificationConsent !== true && !providerProfile.verificationConsentAt) {
+      return NextResponse.json(
+        {
+          error:
+            "Consent is required to verify identity, police clearance, and professional credentials.",
+        },
+        { status: 400 },
       );
     }
 
@@ -94,6 +105,18 @@ export async function POST(request: Request) {
         credentialVerificationSource: credentialEvidence.source,
         credentialVerifiedAt: credentialEvidence.verifiedAt,
         credentialManualReference: null,
+        verificationConsentAt:
+          providerProfile.verificationConsentAt ?? new Date(),
+        identityVerificationLevel: null,
+        identityVerificationMethod: null,
+        identityVerificationSource: null,
+        identityVerifiedAt: null,
+        identityVerifiedBy: null,
+        policeVerificationLevel: null,
+        policeVerificationMethod: null,
+        policeVerificationSource: null,
+        policeVerifiedAt: null,
+        policeVerifiedBy: null,
         verificationStatus: qualificationCheck.recommendedStatus,
         adminNotes: qualificationCheck.adminNotes,
       },
@@ -155,6 +178,12 @@ export async function GET() {
         certificationNumber: providerProfile.certificationNumber ? "Provided" : "Missing",
         certificationIssuer: providerProfile.certificationIssuer ? "Provided" : "Missing",
         certificationName: providerProfile.certificationName ? "Provided" : "Missing",
+      },
+      evidence: {
+        identity: providerProfile.identityVerificationLevel ?? "Unverified",
+        policeClearance: providerProfile.policeVerificationLevel ?? "Unverified",
+        serviceCertification:
+          providerProfile.credentialVerificationLevel ?? "Unverified",
       },
     });
   } catch (error) {

@@ -14,7 +14,7 @@ const credentialMock = jest.mocked(verifyProviderCredential);
 const baseInput = {
   fullName: "Jane Wanjiku Doe",
   serviceCategory: "Mechanic",
-  idNumber: "12345678",
+  idNumber: "28745163",
   policeClearanceNumber: "PCC-12345",
   certificationNumber: "NITA/GTT/12345",
   certificationIssuer: "NITA",
@@ -82,5 +82,58 @@ describe("runProviderQualificationCheck credential enforcement", () => {
     expect(result.autoApproved).toBe(false);
     expect(result.recommendedStatus).toBe("PENDING");
     expect(credentialCheck?.requiresManualReview).toBe(true);
+  });
+
+  it("requires official manual review for ID and police records", async () => {
+    credentialMock.mockResolvedValueOnce({
+      level: "AUTHORITATIVE",
+      method: "EPRA_PUBLIC_REGISTER",
+      source: "Energy and Petroleum Regulatory Authority",
+      sourceUrl: "https://example.test/register",
+      checkedAt: new Date().toISOString(),
+      reason: "Licence confirmed.",
+      holderMatched: true,
+      issuerMatched: true,
+      qualificationMatched: true,
+    });
+
+    const result = await runProviderQualificationCheck(baseInput);
+    const identity = result.checks.find((check) => check.name === "identity");
+    const police = result.checks.find(
+      (check) => check.name === "policeClearance",
+    );
+
+    expect(result.accepted).toBe(true);
+    expect(result.autoApproved).toBe(false);
+    expect(identity?.requiresManualReview).toBe(true);
+    expect(police?.requiresManualReview).toBe(true);
+    expect(identity?.details?.officialSourceUrl).toBe(
+      "https://did.ecitizen.go.ke/",
+    );
+    expect(police?.details?.officialSourceUrl).toBe(
+      "https://dci.ecitizen.go.ke/verify",
+    );
+  });
+
+  it("rejects placeholder National ID values", async () => {
+    credentialMock.mockResolvedValueOnce({
+      level: "AUTHORITATIVE",
+      method: "EPRA_PUBLIC_REGISTER",
+      source: "Energy and Petroleum Regulatory Authority",
+      sourceUrl: "https://example.test/register",
+      checkedAt: new Date().toISOString(),
+      reason: "Licence confirmed.",
+      holderMatched: true,
+      issuerMatched: true,
+      qualificationMatched: true,
+    });
+
+    const result = await runProviderQualificationCheck({
+      ...baseInput,
+      idNumber: "12345678",
+    });
+
+    expect(result.accepted).toBe(false);
+    expect(result.blockingErrors.join(" ")).toContain("placeholder");
   });
 });

@@ -30,6 +30,7 @@ export async function POST(request: Request) {
       certificationNumber,
       certificationIssuer,
       certificationName,
+      verificationConsent,
     } = body;
     const fullName = String(rawFullName ?? "").trim();
     const phone = String(rawPhone ?? "").trim();
@@ -53,6 +54,16 @@ export async function POST(request: Request) {
       return NextResponse.json(
         { error: "Missing required fields." },
         { status: 400 }
+      );
+    }
+
+    if (verificationConsent !== true) {
+      return NextResponse.json(
+        {
+          error:
+            "Consent is required to verify identity, police clearance, and professional credentials.",
+        },
+        { status: 400 },
       );
     }
 
@@ -103,6 +114,17 @@ export async function POST(request: Request) {
       credentialVerificationSource: credentialEvidence.source,
       credentialVerifiedAt: credentialEvidence.verifiedAt,
       credentialManualReference: null,
+      verificationConsentAt: new Date(),
+      identityVerificationLevel: null,
+      identityVerificationMethod: null,
+      identityVerificationSource: null,
+      identityVerifiedAt: null,
+      identityVerifiedBy: null,
+      policeVerificationLevel: null,
+      policeVerificationMethod: null,
+      policeVerificationSource: null,
+      policeVerifiedAt: null,
+      policeVerifiedBy: null,
       verificationStatus: qualificationCheck.recommendedStatus,
       adminNotes: qualificationCheck.adminNotes,
     };

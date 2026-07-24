@@ -11,6 +11,7 @@ module.exports = {
   ],
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
+    '^server-only$': '<rootDir>/src/test/server-only.ts',
   },
   setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
 };

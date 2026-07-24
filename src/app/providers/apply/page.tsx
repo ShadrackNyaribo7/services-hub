@@ -23,6 +23,7 @@ export default function ProviderApplyPage() {
       certificationNumber: formData.get("certificationNumber") as string,
       certificationIssuer: formData.get("certificationIssuer") as string,
       certificationName: formData.get("certificationName") as string,
+      verificationConsent: formData.get("verificationConsent") === "yes",
     };
 
     const result = await submitApplication(application);
@@ -127,6 +128,20 @@ export default function ProviderApplyPage() {
               placeholder={serviceCategory === "Electrical" ? "Electrical Worker Licence" : "As printed on the certificate"}
               className="mt-2 min-h-[44px] w-full rounded-md border px-3 py-2"
             />
+          </label>
+
+          <label className="flex items-start gap-3 text-sm text-slate-700">
+            <input
+              type="checkbox"
+              name="verificationConsent"
+              value="yes"
+              required
+              className="mt-1 size-4 shrink-0"
+            />
+            <span>
+              I consent to verification of my National ID, DCI Police Clearance
+              Certificate, and professional credentials using official sources.
+            </span>
           </label>
 
           <button disabled={isLoading} className="w-full min-h-[44px] rounded-md bg-emerald-700 px-5 py-3 font-semibold text-white disabled:bg-slate-400">

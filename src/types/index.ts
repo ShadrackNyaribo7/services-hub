@@ -20,15 +20,14 @@ export interface DocumentVerificationRequest {
   certificationNumber?: string;
   certificationIssuer?: string;
   certificationName?: string;
+  verificationConsent?: boolean;
 }
 
 export interface DocumentVerificationResponse {
   message: string;
   verificationStatus: string;
-  verificationResults: {
-    idVerification: VerificationResult;
-    policeClearanceVerification: VerificationResult;
-  };
+  verificationResults: Record<string, VerificationResult>;
+  qualificationCheck?: ProviderQualificationCheckResponse;
   providerProfile: Record<string, unknown>;
 }
 
@@ -42,6 +41,11 @@ export interface VerificationStatusResponse {
     certificationNumber?: string;
     certificationIssuer?: string;
     certificationName?: string;
+  };
+  evidence?: {
+    identity: string;
+    policeClearance: string;
+    serviceCertification: string;
   };
 }
 
@@ -57,6 +61,7 @@ export interface ProviderApplication {
   certificationNumber?: string;
   certificationIssuer?: string;
   certificationName?: string;
+  verificationConsent?: boolean;
 }
 
 export interface ProviderQualificationCheckResponse {
@@ -96,6 +101,17 @@ export interface ProviderApplicationResponse {
       credentialVerificationSource?: string | null;
       credentialVerifiedAt?: Date | string | null;
       credentialManualReference?: string | null;
+      verificationConsentAt?: Date | string | null;
+      identityVerificationLevel?: string | null;
+      identityVerificationMethod?: string | null;
+      identityVerificationSource?: string | null;
+      identityVerifiedAt?: Date | string | null;
+      identityVerifiedBy?: string | null;
+      policeVerificationLevel?: string | null;
+      policeVerificationMethod?: string | null;
+      policeVerificationSource?: string | null;
+      policeVerifiedAt?: Date | string | null;
+      policeVerifiedBy?: string | null;
       verificationStatus: string;
       adminNotes?: string | null;
     };
@@ -289,51 +305,6 @@ export interface UFPTenant {
 
 export interface UFPTenantWithCoaches extends UFPTenant {
   coaches: UFPCoach[];
-}
-
-// Kora Pay Verification Types
-export interface KoraVerificationRequest {
-  idNumber: string;
-  idType: 'national_id' | 'passport';
-  firstName?: string;
-  lastName?: string;
-  dateOfBirth?: string;
-  selfieImage?: string;
-  consent?: boolean;
-}
-
-export interface KoraVerificationResponse {
-  success: boolean;
-  data?: {
-    reference: string;
-    id: string;
-    id_type: string;
-    first_name: string;
-    last_name: string;
-    middle_name?: string;
-    full_name: string;
-    date_of_birth: string;
-    nationality: string;
-    gender: string;
-    image?: string;
-  };
-  validationResults?: {
-    nameMatch: boolean;
-    dobMatch: boolean;
-    selfieMatch?: boolean;
-    selfieConfidence?: number;
-  };
-  error?: string;
-}
-
-export interface KoraQueryRequest {
-  reference: string;
-}
-
-export interface KoraQueryResponse {
-  success: boolean;
-  data?: KoraVerificationResponse['data'];
-  error?: string;
 }
 
 // Rating and Ranking types

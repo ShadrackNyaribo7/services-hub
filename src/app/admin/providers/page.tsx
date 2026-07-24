@@ -9,6 +9,8 @@ import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
+const DIGITAL_ID_URL = "https://did.ecitizen.go.ke/";
+const DCI_CLEARANCE_VERIFICATION_URL = "https://dci.ecitizen.go.ke/verify";
 
 async function requireAdmin() {
   const user = await currentUser();
@@ -22,11 +24,13 @@ async function requireAdmin() {
   if (!email || !adminEmails.includes(email)) {
     redirect("/");
   }
+
+  return { email };
 }
 
 async function updateProviderStatus(formData: FormData) {
   "use server";
-  await requireAdmin();
+  const { email: adminEmail } = await requireAdmin();
   const id = String(formData.get("id"));
   const status = String(formData.get("status"));
   const officialVerificationReference = String(
@@ -34,6 +38,10 @@ async function updateProviderStatus(formData: FormData) {
   ).trim();
   const officialVerificationConfirmed =
     String(formData.get("officialVerificationConfirmed") ?? "") === "yes";
+  const identityVerificationConfirmed =
+    String(formData.get("identityVerificationConfirmed") ?? "") === "yes";
+  const policeVerificationConfirmed =
+    String(formData.get("policeVerificationConfirmed") ?? "") === "yes";
 
   if (status !== "APPROVED" && status !== "REJECTED") {
     return;
@@ -53,6 +61,20 @@ async function updateProviderStatus(formData: FormData) {
     });
 
     if (!provider) {
+      return;
+    }
+
+    if (!provider.verificationConsentAt) {
+      await prisma.providerProfile.update({
+        where: { id },
+        data: {
+          verificationStatus: "PENDING",
+          adminNotes:
+            "Approval blocked: the applicant must resubmit and consent to official record verification.",
+        },
+      });
+
+      revalidatePath("/admin/providers");
       return;
     }
 
@@ -80,6 +102,14 @@ async function updateProviderStatus(formData: FormData) {
     }
 
     const credentialEvidence = getCredentialEvidenceSummary(qualificationCheck);
+    const hasStoredIdentityEvidence =
+      provider.identityVerificationLevel === "AUTHORITATIVE_MANUAL" &&
+      provider.identityVerificationMethod === "ECITIZEN_DIGITAL_ID_QR" &&
+      Boolean(provider.identityVerifiedAt);
+    const hasStoredPoliceEvidence =
+      provider.policeVerificationLevel === "AUTHORITATIVE_MANUAL" &&
+      provider.policeVerificationMethod === "DCI_ECITIZEN_PUBLIC_CHECKER" &&
+      Boolean(provider.policeVerifiedAt);
     const hasCredential = Boolean(provider.certificationNumber);
     const hasStoredAuthoritativeEvidence =
       (provider.credentialVerificationLevel === "AUTHORITATIVE" ||
@@ -89,6 +119,34 @@ async function updateProviderStatus(formData: FormData) {
       hasCredential &&
       !credentialEvidence.authoritative &&
       !hasStoredAuthoritativeEvidence;
+
+    if (!hasStoredIdentityEvidence && !identityVerificationConfirmed) {
+      await prisma.providerProfile.update({
+        where: { id },
+        data: {
+          verificationStatus: "PENDING",
+          adminNotes:
+            `Approval blocked: confirm the applicant's National ID using the official eCitizen Digital ID QR.\n${qualificationCheck.adminNotes}`,
+        },
+      });
+
+      revalidatePath("/admin/providers");
+      return;
+    }
+
+    if (!hasStoredPoliceEvidence && !policeVerificationConfirmed) {
+      await prisma.providerProfile.update({
+        where: { id },
+        data: {
+          verificationStatus: "PENDING",
+          adminNotes:
+            `Approval blocked: confirm the Police Clearance Certificate using the official DCI eCitizen checker.\n${qualificationCheck.adminNotes}`,
+        },
+      });
+
+      revalidatePath("/admin/providers");
+      return;
+    }
 
     if (
       needsOfficialManualEvidence &&
@@ -124,12 +182,33 @@ async function updateProviderStatus(formData: FormData) {
           credentialManualReference: officialVerificationReference,
         }
       : {};
+    const resolvedIdentityEvidence = hasStoredIdentityEvidence
+      ? {}
+      : {
+          identityVerificationLevel: "AUTHORITATIVE_MANUAL",
+          identityVerificationMethod: "ECITIZEN_DIGITAL_ID_QR",
+          identityVerificationSource: DIGITAL_ID_URL,
+          identityVerifiedAt: new Date(),
+          identityVerifiedBy: adminEmail,
+        };
+    const resolvedPoliceEvidence = hasStoredPoliceEvidence
+      ? {}
+      : {
+          policeVerificationLevel: "AUTHORITATIVE_MANUAL",
+          policeVerificationMethod: "DCI_ECITIZEN_PUBLIC_CHECKER",
+          policeVerificationSource: DCI_CLEARANCE_VERIFICATION_URL,
+          policeVerifiedAt: new Date(),
+          policeVerifiedBy: adminEmail,
+        };
 
     await prisma.providerProfile.update({
       where: { id },
       data: {
         verificationStatus: "APPROVED",
-        adminNotes: `Manual admin approval recorded.\n${qualificationCheck.adminNotes}`,
+        adminNotes:
+          `Official identity and police-clearance checks confirmed by ${adminEmail}.\n${qualificationCheck.adminNotes}`,
+        ...resolvedIdentityEvidence,
+        ...resolvedPoliceEvidence,
         ...resolvedCredentialEvidence,
       },
     });
@@ -162,10 +241,18 @@ export default async function AdminProvidersPage() {
               <p>County: {provider.county}</p>
               <p>Category: {provider.serviceCategory}</p>
               <p>Status: {provider.verificationStatus}</p>
-              <p>ID: {provider.idNumber ? "Provided" : "Missing"}</p>
+              <p>ID: {provider.idNumber ?? "Missing"}</p>
               <p>
-                Police clearance:{" "}
-                {provider.policeClearanceNumber ? "Provided" : "Missing"}
+                Police clearance application:{" "}
+                {provider.policeClearanceNumber ?? "Missing"}
+              </p>
+              <p>
+                Identity evidence:{" "}
+                {provider.identityVerificationLevel ?? "Unverified"}
+              </p>
+              <p>
+                Police clearance evidence:{" "}
+                {provider.policeVerificationLevel ?? "Unverified"}
               </p>
               <p>
                 Professional certificate:{" "}
@@ -196,6 +283,60 @@ export default async function AdminProvidersPage() {
                 <form action={updateProviderStatus}>
                   <input type="hidden" name="id" value={provider.id} />
                   <input type="hidden" name="status" value="APPROVED" />
+                  {(!provider.identityVerifiedAt ||
+                    provider.identityVerificationLevel !==
+                      "AUTHORITATIVE_MANUAL" ||
+                    provider.identityVerificationMethod !==
+                      "ECITIZEN_DIGITAL_ID_QR") && (
+                    <div className="mb-3 max-w-md space-y-2">
+                      <a
+                        href={DIGITAL_ID_URL}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-block font-semibold text-emerald-800 underline"
+                      >
+                        Open official eCitizen Digital ID
+                      </a>
+                      <label className="flex items-start gap-2 text-sm">
+                        <input
+                          type="checkbox"
+                          name="identityVerificationConfirmed"
+                          value="yes"
+                          required
+                          className="mt-1 size-4"
+                        />
+                        I scanned the applicant&apos;s eCitizen Digital ID QR and
+                        matched the full name and National ID.
+                      </label>
+                    </div>
+                  )}
+                  {(!provider.policeVerifiedAt ||
+                    provider.policeVerificationLevel !==
+                      "AUTHORITATIVE_MANUAL" ||
+                    provider.policeVerificationMethod !==
+                      "DCI_ECITIZEN_PUBLIC_CHECKER") && (
+                    <div className="mb-3 max-w-md space-y-2">
+                      <a
+                        href={DCI_CLEARANCE_VERIFICATION_URL}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-block font-semibold text-emerald-800 underline"
+                      >
+                        Open official DCI certificate checker
+                      </a>
+                      <label className="flex items-start gap-2 text-sm">
+                        <input
+                          type="checkbox"
+                          name="policeVerificationConfirmed"
+                          value="yes"
+                          required
+                          className="mt-1 size-4"
+                        />
+                        I verified this application number in the DCI checker and
+                        matched the certificate holder.
+                      </label>
+                    </div>
+                  )}
                   {provider.certificationNumber &&
                     provider.credentialVerificationLevel !== "AUTHORITATIVE" &&
                     provider.credentialVerificationLevel !== "AUTHORITATIVE_MANUAL" && (

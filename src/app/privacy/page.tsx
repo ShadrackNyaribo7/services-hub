@@ -13,6 +13,8 @@ export default function PrivacyPolicy() {
               <li>Phone numbers for M-Pesa payments</li>
               <li>Service category and location preferences</li>
               <li>Professional credentials and verification documents</li>
+              <li>National ID and Police Clearance Certificate identifiers</li>
+              <li>Consent and audit records for provider verification</li>
             </ul>
           </section>
 
@@ -46,6 +48,7 @@ export default function PrivacyPolicy() {
               <li>Clerk for authentication</li>
               <li>Unified Fitness Platform for service provider integration</li>
               <li>Document verification services for provider validation</li>
+              <li>Official eCitizen Digital ID and DCI verification services</li>
             </ul>
           </section>
 
