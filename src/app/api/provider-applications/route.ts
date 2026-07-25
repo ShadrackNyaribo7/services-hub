@@ -2,7 +2,9 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@clerk/nextjs/server";
 import {
+  getAutomatedRecordEvidenceSummary,
   getCredentialEvidenceSummary,
+  hasAutomatedVerificationServiceFailure,
   runProviderQualificationCheck,
 } from "@/lib/verification/qualificationService";
 
@@ -12,7 +14,7 @@ export async function POST(request: Request) {
   if (!userId) {
     return NextResponse.json(
       { error: "You must be signed in to apply." },
-      { status: 401 }
+      { status: 401 },
     );
   }
 
@@ -46,14 +48,12 @@ export async function POST(request: Request) {
     const submittedCertificationIssuer = String(
       certificationIssuer ?? "",
     ).trim();
-    const submittedCertificationName = String(
-      certificationName ?? "",
-    ).trim();
+    const submittedCertificationName = String(certificationName ?? "").trim();
 
     if (!fullName || !phone || !county || !serviceCategory) {
       return NextResponse.json(
         { error: "Missing required fields." },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -95,11 +95,27 @@ export async function POST(request: Request) {
           qualificationErrors: qualificationCheck.blockingErrors,
           qualificationCheck,
         },
-        { status: 422 },
+        {
+          status: hasAutomatedVerificationServiceFailure(qualificationCheck)
+            ? 503
+            : 422,
+        },
       );
     }
 
     const credentialEvidence = getCredentialEvidenceSummary(qualificationCheck);
+    const automatedEvidence =
+      getAutomatedRecordEvidenceSummary(qualificationCheck);
+
+    if (
+      !automatedEvidence.identity.authoritative ||
+      !automatedEvidence.policeClearance.authoritative
+    ) {
+      return NextResponse.json(
+        { error: "Authoritative automated verification evidence is required." },
+        { status: 503 },
+      );
+    }
 
     const providerProfileData = {
       county,
@@ -115,16 +131,18 @@ export async function POST(request: Request) {
       credentialVerifiedAt: credentialEvidence.verifiedAt,
       credentialManualReference: null,
       verificationConsentAt: new Date(),
-      identityVerificationLevel: null,
-      identityVerificationMethod: null,
-      identityVerificationSource: null,
-      identityVerifiedAt: null,
-      identityVerifiedBy: null,
-      policeVerificationLevel: null,
-      policeVerificationMethod: null,
-      policeVerificationSource: null,
-      policeVerifiedAt: null,
-      policeVerifiedBy: null,
+      identityVerificationLevel: automatedEvidence.identity.level,
+      identityVerificationMethod: automatedEvidence.identity.method,
+      identityVerificationSource: automatedEvidence.identity.source,
+      identityVerificationReference: automatedEvidence.identity.reference,
+      identityVerifiedAt: automatedEvidence.identity.verifiedAt,
+      identityVerifiedBy: "AUTOMATED_SYSTEM",
+      policeVerificationLevel: automatedEvidence.policeClearance.level,
+      policeVerificationMethod: automatedEvidence.policeClearance.method,
+      policeVerificationSource: automatedEvidence.policeClearance.source,
+      policeVerificationReference: automatedEvidence.policeClearance.reference,
+      policeVerifiedAt: automatedEvidence.policeClearance.verifiedAt,
+      policeVerifiedBy: "AUTOMATED_SYSTEM",
       verificationStatus: qualificationCheck.recommendedStatus,
       adminNotes: qualificationCheck.adminNotes,
     };
@@ -163,8 +181,8 @@ export async function POST(request: Request) {
         application,
         qualificationCheck,
         message: qualificationCheck.autoApproved
-          ? "Application submitted and qualifications verified."
-          : "Application submitted. Admin verification is required before approval.",
+          ? "Application submitted and all required records were verified automatically."
+          : "National ID and police clearance were verified automatically. Professional credential review remains pending.",
       },
       { status: 201 },
     );
@@ -173,7 +191,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json(
       { error: "Could not submit application." },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import Link from "next/link";
+import { MOBILE_NAV_ITEMS } from "@/lib/navigation";
 
 export default function MobileNav() {
   const [isOpen, setIsOpen] = useState(false);
@@ -28,27 +29,16 @@ export default function MobileNav() {
           className="basis-full overflow-hidden rounded-md border border-gray-700 bg-gray-950 text-slate-200 shadow-lg md:hidden"
           aria-label="Mobile navigation"
         >
-          <Link 
-            href="/services" 
-            className="block px-6 py-4 text-slate-200 hover:bg-gray-800 hover:text-emerald-400 transition"
-            onClick={() => setIsOpen(false)}
-          >
-            Find Services
-          </Link>
-          <Link 
-            href="/providers/apply" 
-            className="block px-6 py-4 text-slate-200 hover:bg-gray-800 hover:text-emerald-400 transition"
-            onClick={() => setIsOpen(false)}
-          >
-            Become a Provider
-          </Link>
-          <Link 
-            href="/signin" 
-            className="block px-6 py-4 text-slate-200 hover:bg-gray-800 hover:text-emerald-400 transition"
-            onClick={() => setIsOpen(false)}
-          >
-            Sign In
-          </Link>
+          {MOBILE_NAV_ITEMS.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className="block px-6 py-4 text-slate-200 hover:bg-gray-800 hover:text-emerald-400 transition"
+              onClick={() => setIsOpen(false)}
+            >
+              {item.label}
+            </Link>
+          ))}
         </nav>
       )}
     </>

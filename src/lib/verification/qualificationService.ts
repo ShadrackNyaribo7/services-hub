@@ -1,7 +1,14 @@
-import { verificationService, type VerificationResult } from "./verificationService";
+import {
+  verificationService,
+  type VerificationResult,
+} from "./verificationService";
 import { verifyProviderCredential } from "./credentialVerificationService";
 
-export type VerificationStatusValue = "PENDING" | "APPROVED" | "REJECTED" | "SUSPENDED";
+export type VerificationStatusValue =
+  | "PENDING"
+  | "APPROVED"
+  | "REJECTED"
+  | "SUSPENDED";
 
 export type ProviderQualificationInput = {
   fullName: string;
@@ -43,6 +50,20 @@ export type CredentialEvidenceSummary = {
   source: string | null;
   verifiedAt: Date | null;
   authoritative: boolean;
+};
+
+export type AutomatedRecordEvidence = {
+  level: string | null;
+  method: string | null;
+  source: string | null;
+  reference: string | null;
+  verifiedAt: Date | null;
+  authoritative: boolean;
+};
+
+export type AutomatedRecordEvidenceSummary = {
+  identity: AutomatedRecordEvidence;
+  policeClearance: AutomatedRecordEvidence;
 };
 
 type ServiceCertificationRequirement = {
@@ -93,8 +114,9 @@ export function getServiceCertificationRequirement(
   serviceCategory: string,
 ): ServiceCertificationRequirement {
   return (
-    SERVICE_CERTIFICATION_REQUIREMENTS[normalizeServiceCategory(serviceCategory)] ??
-    DEFAULT_CERTIFICATION_REQUIREMENT
+    SERVICE_CERTIFICATION_REQUIREMENTS[
+      normalizeServiceCategory(serviceCategory)
+    ] ?? DEFAULT_CERTIFICATION_REQUIREMENT
   );
 }
 
@@ -153,9 +175,12 @@ function fromVerificationResult(
     name,
     label,
     valid: result.valid,
-    reason: result.reason ?? (result.valid ? "Verified" : "Verification failed"),
+    reason:
+      result.reason ?? (result.valid ? "Verified" : "Verification failed"),
     provider: result.provider ?? "VerificationService",
-    requiresManualReview: result.valid ? verificationNeedsManualReview(result) : false,
+    requiresManualReview: result.valid
+      ? verificationNeedsManualReview(result)
+      : false,
     details: result.details,
   };
 }
@@ -226,7 +251,8 @@ async function verifyServiceCertification({
       name: "serviceCertification",
       label: requirement.label,
       valid: false,
-      reason: "Credential issuer and qualification name must be 160 characters or fewer.",
+      reason:
+        "Credential issuer and qualification name must be 160 characters or fewer.",
       provider: "QualificationRules",
       requiresManualReview: false,
     };
@@ -299,6 +325,7 @@ export async function runProviderQualificationCheck(
 
   const [documentVerification, certificationVerification] = await Promise.all([
     verificationService.verifyAllDocuments({
+      fullName: input.fullName,
       idNumber,
       policeClearanceNumber,
     }),
@@ -356,6 +383,73 @@ export function getCredentialEvidenceSummary(
   };
 }
 
+function getAutomatedRecordEvidence(
+  result: ProviderQualificationResult,
+  checkName: "identity" | "policeClearance",
+): AutomatedRecordEvidence {
+  const check = result.checks.find(
+    (qualificationCheck) => qualificationCheck.name === checkName,
+  );
+  const level =
+    typeof check?.details?.evidenceLevel === "string"
+      ? check.details.evidenceLevel
+      : null;
+  const method =
+    typeof check?.details?.verificationMethod === "string"
+      ? check.details.verificationMethod
+      : null;
+  const source =
+    typeof check?.details?.sourceUrl === "string"
+      ? check.details.sourceUrl
+      : null;
+  const reference =
+    typeof check?.details?.reference === "string"
+      ? check.details.reference
+      : null;
+  const checkedAt =
+    typeof check?.details?.checkedAt === "string"
+      ? new Date(check.details.checkedAt)
+      : null;
+  const authoritative =
+    check?.valid === true &&
+    check.requiresManualReview === false &&
+    level === "AUTHORITATIVE" &&
+    method === "AUTOMATED_OFFICIAL_API" &&
+    Boolean(source) &&
+    Boolean(reference) &&
+    Boolean(checkedAt && !Number.isNaN(checkedAt.valueOf()));
+
+  return {
+    level,
+    method,
+    source,
+    reference,
+    verifiedAt: authoritative ? checkedAt : null,
+    authoritative,
+  };
+}
+
+export function getAutomatedRecordEvidenceSummary(
+  result: ProviderQualificationResult,
+): AutomatedRecordEvidenceSummary {
+  return {
+    identity: getAutomatedRecordEvidence(result, "identity"),
+    policeClearance: getAutomatedRecordEvidence(result, "policeClearance"),
+  };
+}
+
+export function hasAutomatedVerificationServiceFailure(
+  result: ProviderQualificationResult,
+) {
+  return result.checks.some(
+    (check) =>
+      (check.name === "identity" || check.name === "policeClearance") &&
+      (check.details?.errorCode === "NOT_CONFIGURED" ||
+        check.details?.errorCode === "UPSTREAM_UNAVAILABLE" ||
+        check.details?.errorCode === "INVALID_EVIDENCE"),
+  );
+}
+
 function buildQualificationResult(
   checks: QualificationCheck[],
 ): ProviderQualificationResult {
@@ -371,7 +465,9 @@ function buildQualificationResult(
   const adminNotes = checks
     .map((check) => {
       const state = check.valid ? "valid" : "invalid";
-      const review = check.requiresManualReview ? "; manual review required" : "";
+      const review = check.requiresManualReview
+        ? "; manual review required"
+        : "";
       return `${check.label}: ${state} via ${check.provider}. ${check.reason}${review}`;
     })
     .join("\n");

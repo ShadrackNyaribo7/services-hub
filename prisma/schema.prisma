@@ -22,37 +22,39 @@ model User {
 }
 
 model ProviderProfile {
-  id                           String             @id @default(cuid())
-  userId                       String             @unique
-  county                       String
-  serviceCategory              String
-  policeClearanceNumber        String?
-  idNumber                     String?
-  certificationNumber          String?
-  certificationIssuer          String?
-  certificationName            String?
-  credentialVerificationLevel  String?
-  credentialVerificationMethod String?
-  credentialVerificationSource String?
-  credentialVerifiedAt         DateTime?
-  credentialManualReference    String?
-  verificationConsentAt        DateTime?
-  identityVerificationLevel    String?
-  identityVerificationMethod   String?
-  identityVerificationSource   String?
-  identityVerifiedAt           DateTime?
-  identityVerifiedBy           String?
-  policeVerificationLevel      String?
-  policeVerificationMethod     String?
-  policeVerificationSource     String?
-  policeVerifiedAt             DateTime?
-  policeVerifiedBy             String?
-  verificationStatus           VerificationStatus @default(PENDING)
-  adminNotes                   String?
-  createdAt                    DateTime           @default(now())
-  bookings                     Booking[]
-  ratings                      Rating[]
-  user                         User               @relation(fields: [userId], references: [id])
+  id                            String             @id @default(cuid())
+  userId                        String             @unique
+  county                        String
+  serviceCategory               String
+  policeClearanceNumber         String?
+  idNumber                      String?
+  certificationNumber           String?
+  certificationIssuer           String?
+  certificationName             String?
+  credentialVerificationLevel   String?
+  credentialVerificationMethod  String?
+  credentialVerificationSource  String?
+  credentialVerifiedAt          DateTime?
+  credentialManualReference     String?
+  verificationConsentAt         DateTime?
+  identityVerificationLevel     String?
+  identityVerificationMethod    String?
+  identityVerificationSource    String?
+  identityVerificationReference String?
+  identityVerifiedAt            DateTime?
+  identityVerifiedBy            String?
+  policeVerificationLevel       String?
+  policeVerificationMethod      String?
+  policeVerificationSource      String?
+  policeVerificationReference   String?
+  policeVerifiedAt              DateTime?
+  policeVerifiedBy              String?
+  verificationStatus            VerificationStatus @default(PENDING)
+  adminNotes                    String?
+  createdAt                     DateTime           @default(now())
+  bookings                      Booking[]
+  ratings                       Rating[]
+  user                          User               @relation(fields: [userId], references: [id])
 
   // Rating aggregation fields
   averageRating  Float?      @default(0)

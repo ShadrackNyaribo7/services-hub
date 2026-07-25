@@ -8,8 +8,8 @@ export interface ApiResponse<T> {
 // Verification types
 export interface VerificationResult {
   valid: boolean;
-  reason?: string;
-  provider?: string;
+  reason: string;
+  provider: string;
   details?: Record<string, unknown>;
 }
 
@@ -105,11 +105,13 @@ export interface ProviderApplicationResponse {
       identityVerificationLevel?: string | null;
       identityVerificationMethod?: string | null;
       identityVerificationSource?: string | null;
+      identityVerificationReference?: string | null;
       identityVerifiedAt?: Date | string | null;
       identityVerifiedBy?: string | null;
       policeVerificationLevel?: string | null;
       policeVerificationMethod?: string | null;
       policeVerificationSource?: string | null;
+      policeVerificationReference?: string | null;
       policeVerifiedAt?: Date | string | null;
       policeVerifiedBy?: string | null;
       verificationStatus: string;

@@ -7,12 +7,13 @@
 import { ClerkProvider } from "@clerk/nextjs";
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import Image from "next/image";
 import Link from "next/link";
+import BrandLogo from "@/components/BrandLogo";
 import OfflineBanner from "@/components/OfflineBanner";
 import MobileNav from "@/components/MobileNav";
 import PageAnimations from "@/components/PageAnimations";
 import PWAInstallButton from "@/components/PWAInstallButton";
+import { FOOTER_NAV_ITEMS, LEGAL_NAV_ITEMS } from "@/lib/navigation";
 import "./globals.css";
 
 
@@ -70,13 +71,7 @@ export default function RootLayout({
           <header className="relative z-10 bg-gray-900 border-b border-gray-800">
             <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-y-3 px-4 py-4 sm:px-6">
               <Link href="/" className="flex items-center">
-                <Image 
-                  src="/Creative Idea.svg" 
-                  alt="PATANAFUU Logo" 
-                  width={150} 
-                  height={50}
-                  className="h-8 w-auto sm:h-10"
-                />
+                <BrandLogo className="h-8 w-auto sm:h-10" />
               </Link>
               <MobileNav />
             </div>
@@ -88,30 +83,32 @@ export default function RootLayout({
               <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                 <div>
                   <div className="mb-4">
-                    <Image 
-                      src="/Creative Idea.svg" 
-                      alt="PATANAFUU Logo" 
-                      width={150} 
-                      height={50}
-                      className="h-10 w-auto sm:h-12"
-                    />
+                    <BrandLogo className="h-10 w-auto sm:h-12" />
                   </div>
                   <p className="text-xs sm:text-sm">Your trusted platform for connecting with verified service providers across Kenya.</p>
                 </div>
                 <div>
                   <h3 className="text-base font-semibold text-white mb-4 sm:text-lg">Quick Links</h3>
                   <ul className="space-y-2 text-xs sm:text-sm">
-                    <li><Link href="/services" className="hover:text-emerald-400 transition">Find Services</Link></li>
-                    <li><Link href="/providers/apply" className="hover:text-emerald-400 transition">Become a Provider</Link></li>
-                    <li><Link href="/admin/bookings" className="hover:text-emerald-400 transition">Admin Dashboard</Link></li>
+                    {FOOTER_NAV_ITEMS.map((item) => (
+                      <li key={item.href}>
+                        <Link href={item.href} className="hover:text-emerald-400 transition">
+                          {item.label}
+                        </Link>
+                      </li>
+                    ))}
                   </ul>
                 </div>
                 <div>
                   <h3 className="text-base font-semibold text-white mb-4 sm:text-lg">Legal</h3>
                   <ul className="space-y-2 text-xs sm:text-sm">
-                    <li><Link href="/privacy" className="hover:text-emerald-400 transition">Privacy Policy</Link></li>
-                    <li><Link href="/refund" className="hover:text-emerald-400 transition">Refund Policy</Link></li>
-                    <li><Link href="/terms" className="hover:text-emerald-400 transition">Terms of Service</Link></li>
+                    {LEGAL_NAV_ITEMS.map((item) => (
+                      <li key={item.href}>
+                        <Link href={item.href} className="hover:text-emerald-400 transition">
+                          {item.label}
+                        </Link>
+                      </li>
+                    ))}
                   </ul>
                 </div>
               </div>
