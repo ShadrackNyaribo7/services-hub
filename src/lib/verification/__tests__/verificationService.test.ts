@@ -9,142 +9,127 @@ import {
 import { verificationService } from "../verificationService";
 
 const originalFetch = global.fetch;
-const ENVIRONMENT_KEYS = [
-  "KENYA_IDENTITY_VERIFY_URL",
-  "KENYA_IDENTITY_API_TOKEN",
-  "KENYA_IDENTITY_AUTH_HEADER",
-  "KENYA_IDENTITY_AUTH_SCHEME",
-  "KENYA_DCI_VERIFY_URL",
-  "KENYA_DCI_API_TOKEN",
-  "KENYA_DCI_AUTH_HEADER",
-  "KENYA_DCI_AUTH_SCHEME",
-] as const;
+const originalOfflineSecret = process.env.OFFLINE_VERIFICATION_SECRET;
+const originalClerkSecret = process.env.CLERK_SECRET_KEY;
 
-describe("automated official-record verification", () => {
+function validDocuments() {
+  return {
+    fullName: "Jane Wanjiku Doe",
+    identityDocumentName: "DOE JANE WANJIKU",
+    idNumber: "28745163",
+    idNumberConfirmation: "28745163",
+    policeClearanceName: "Jane Wanjiku Doe",
+    policeClearanceNumber: "PCC-739152",
+    policeClearanceNumberConfirmation: "PCC-739152",
+  };
+}
+
+describe("offline identity and police-clearance evidence validation", () => {
   const fetchMock = jest.fn<typeof fetch>();
 
   beforeEach(() => {
     fetchMock.mockReset();
     global.fetch = fetchMock;
-
-    for (const key of ENVIRONMENT_KEYS) {
-      delete process.env[key];
-    }
+    process.env.OFFLINE_VERIFICATION_SECRET =
+      "test-only-offline-evidence-secret-32-characters";
+    process.env.PELEZA_IDENTITY_VERIFY_URL =
+      "https://identity.example.test/verify";
+    process.env.PELEZA_POLICE_VERIFY_URL = "https://police.example.test/verify";
   });
 
   afterEach(() => {
     global.fetch = originalFetch;
+    if (originalOfflineSecret === undefined) {
+      delete process.env.OFFLINE_VERIFICATION_SECRET;
+    } else {
+      process.env.OFFLINE_VERIFICATION_SECRET = originalOfflineSecret;
+    }
+    if (originalClerkSecret === undefined) {
+      delete process.env.CLERK_SECRET_KEY;
+    } else {
+      process.env.CLERK_SECRET_KEY = originalClerkSecret;
+    }
+    delete process.env.PELEZA_IDENTITY_VERIFY_URL;
+    delete process.env.PELEZA_POLICE_VERIFY_URL;
   });
 
-  it("fails closed when the official integrations are not configured", async () => {
-    const result = await verificationService.verifyAllDocuments({
-      fullName: "Jane Wanjiku Doe",
-      idNumber: "28745163",
-      policeClearanceNumber: "PCC-12345",
-    });
+  it("accepts consistent entries, seals them, and never calls a live service", async () => {
+    const result =
+      await verificationService.verifyAllDocuments(validDocuments());
 
-    expect(result.overallValid).toBe(false);
-    expect(result.idVerification.valid).toBe(false);
-    expect(result.idVerification.details?.errorCode).toBe("NOT_CONFIGURED");
+    expect(result.overallValid).toBe(true);
+    expect(result.idVerification.details?.evidenceLevel).toBe("SELF_ATTESTED");
+    expect(result.idVerification.details?.reference).toMatch(/^OEV1-IDENTITY-/);
+    expect(result.idVerification.details?.authenticityEstablished).toBe(false);
     expect(result.idVerification.details?.requiresManualReview).toBe(false);
-    expect(result.policeClearanceVerification.details?.errorCode).toBe(
-      "NOT_CONFIGURED",
+    expect(result.policeClearanceVerification.details?.reference).toMatch(
+      /^OEV1-POLICE_CLEARANCE-/,
     );
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("authoritatively verifies matching identity and DCI records", async () => {
-    process.env.KENYA_IDENTITY_VERIFY_URL =
-      "https://identity.example.test/verify";
-    process.env.KENYA_IDENTITY_API_TOKEN = "identity-secret";
-    process.env.KENYA_DCI_VERIFY_URL = "https://dci.example.test/verify";
-    process.env.KENYA_DCI_API_TOKEN = "dci-secret";
-    const checkedAt = new Date().toISOString();
-
-    fetchMock
-      .mockResolvedValueOnce(
-        Response.json({
-          verified: true,
-          reference: "identity-audit-123",
-          checkedAt,
-          subject: {
-            idNumber: "28745163",
-            fullName: "DOE JANE WANJIKU",
-          },
-        }),
-      )
-      .mockResolvedValueOnce(
-        Response.json({
-          verified: true,
-          reference: "dci-audit-456",
-          checkedAt,
-          subject: {
-            idNumber: "28745163",
-            fullName: "Jane Wanjiku Doe",
-          },
-          document: {
-            number: "PCC-12345",
-            validUntil: "2099-12-31T23:59:59.000Z",
-          },
-        }),
-      );
-
-    const result = await verificationService.verifyAllDocuments({
+  it("rejects mismatched repeated ID entry", async () => {
+    const result = await verificationService.verifyIdNumber({
       fullName: "Jane Wanjiku Doe",
+      identityDocumentName: "Jane Wanjiku Doe",
       idNumber: "28745163",
-      policeClearanceNumber: "PCC-12345",
+      idNumberConfirmation: "28745164",
     });
 
-    expect(result.overallValid).toBe(true);
-    expect(result.idVerification.details?.evidenceLevel).toBe("AUTHORITATIVE");
-    expect(result.idVerification.details?.reference).toBe("identity-audit-123");
-    expect(result.policeClearanceVerification.details?.reference).toBe(
-      "dci-audit-456",
-    );
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(result.valid).toBe(false);
+    expect(result.reason).toContain("do not match");
   });
 
-  it("rejects a verified DCI document belonging to another identity", async () => {
-    process.env.KENYA_DCI_VERIFY_URL = "https://dci.example.test/verify";
-    process.env.KENYA_DCI_API_TOKEN = "dci-secret";
-    fetchMock.mockResolvedValueOnce(
-      Response.json({
-        verified: true,
-        reference: "dci-audit-789",
-        checkedAt: new Date().toISOString(),
-        subject: {
-          idNumber: "99999999",
-          fullName: "Other Person",
-        },
-        document: { number: "PCC-12345" },
-      }),
-    );
-
-    const result = await verificationService.verifyPoliceClearance(
-      "PCC-12345",
-      "28745163",
-      "Jane Wanjiku Doe",
-    );
+  it("rejects a printed identity name belonging to someone else", async () => {
+    const result = await verificationService.verifyIdNumber({
+      fullName: "Jane Wanjiku Doe",
+      identityDocumentName: "John Other Person",
+      idNumber: "28745163",
+      idNumberConfirmation: "28745163",
+    });
 
     expect(result.valid).toBe(false);
-    expect(result.details?.evidenceLevel).toBe("REJECTED");
     expect(result.reason).toContain("does not match");
   });
 
-  it("blocks approval when the upstream verifier is unavailable", async () => {
-    process.env.KENYA_IDENTITY_VERIFY_URL =
-      "https://identity.example.test/verify";
-    process.env.KENYA_IDENTITY_API_TOKEN = "identity-secret";
-    fetchMock.mockRejectedValueOnce(new Error("network unavailable"));
+  it("rejects placeholder, repeated, and sequential ID values", async () => {
+    for (const idNumber of ["12345678", "00000000", "11111111"]) {
+      const result = await verificationService.verifyIdNumber({
+        fullName: "Jane Wanjiku Doe",
+        identityDocumentName: "Jane Wanjiku Doe",
+        idNumber,
+        idNumberConfirmation: idNumber,
+      });
 
-    const result = await verificationService.verifyIdNumber(
-      "28745163",
-      "Jane Wanjiku Doe",
-    );
+      expect(result.valid).toBe(false);
+      expect(result.reason).toContain("placeholder");
+    }
+  });
+
+  it("rejects a police number reused as the National ID", async () => {
+    const result = await verificationService.verifyPoliceClearance({
+      fullName: "Jane Wanjiku Doe",
+      policeClearanceName: "Jane Wanjiku Doe",
+      idNumber: "28745163",
+      certificateNumber: "28745163",
+      certificateNumberConfirmation: "28745163",
+    });
 
     expect(result.valid).toBe(false);
-    expect(result.details?.errorCode).toBe("UPSTREAM_UNAVAILABLE");
-    expect(result.details?.retryable).toBe(true);
-    expect(result.details?.requiresManualReview).toBe(false);
+    expect(result.reason).toContain("cannot be the same");
+  });
+
+  it("fails closed when no sufficiently strong server secret is available", async () => {
+    delete process.env.OFFLINE_VERIFICATION_SECRET;
+    delete process.env.CLERK_SECRET_KEY;
+
+    const result =
+      await verificationService.verifyAllDocuments(validDocuments());
+
+    expect(result.overallValid).toBe(false);
+    expect(result.idVerification.details?.errorCode).toBe(
+      "EVIDENCE_SEAL_NOT_CONFIGURED",
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });

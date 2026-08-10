@@ -1,67 +1,69 @@
-import { afterEach, beforeEach, describe, expect, it, jest } from "@jest/globals";
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  jest,
+} from "@jest/globals";
 import { verifyProviderCredential } from "../credentialVerificationService";
 
 const originalFetch = global.fetch;
+const originalOfflineSecret = process.env.OFFLINE_VERIFICATION_SECRET;
+const originalClerkSecret = process.env.CLERK_SECRET_KEY;
 
-function epraInput(overrides: Partial<Parameters<typeof verifyProviderCredential>[0]> = {}) {
+function epraInput(
+  overrides: Partial<Parameters<typeof verifyProviderCredential>[0]> = {},
+) {
   return {
     fullName: "Jane Wanjiku Doe",
     serviceCategory: "Electrical",
-    certificationNumber: "EPRA/EW/01234",
+    certificationNumber: "EPRA/EW/73915",
+    certificationNumberConfirmation: "EPRA/EW/73915",
+    certificationHolderName: "DOE JANE WANJIKU",
     certificationIssuer: "Energy and Petroleum Regulatory Authority",
     certificationName: "Electrical Worker Licence",
+    idNumber: "28745163",
+    policeClearanceNumber: "PCC-739152",
     ...overrides,
   };
 }
 
-describe("verifyProviderCredential", () => {
+describe("offline provider credential validation", () => {
   const fetchMock = jest.fn<typeof fetch>();
 
   beforeEach(() => {
     fetchMock.mockReset();
     global.fetch = fetchMock;
+    process.env.OFFLINE_VERIFICATION_SECRET =
+      "test-only-offline-evidence-secret-32-characters";
   });
 
   afterEach(() => {
     global.fetch = originalFetch;
+    if (originalOfflineSecret === undefined) {
+      delete process.env.OFFLINE_VERIFICATION_SECRET;
+    } else {
+      process.env.OFFLINE_VERIFICATION_SECRET = originalOfflineSecret;
+    }
+    if (originalClerkSecret === undefined) {
+      delete process.env.CLERK_SECRET_KEY;
+    } else {
+      process.env.CLERK_SECRET_KEY = originalClerkSecret;
+    }
   });
 
-  it("authoritatively verifies an active EPRA licence with the same holder", async () => {
-    fetchMock.mockResolvedValueOnce(
-      new Response(`
-        <table><tbody><tr>
-          <td>1</td><td>DOE JANE WANJIKU</td><td>Class B</td>
-          <td>EPRA/EW/01234</td><td>Nairobi</td><td>2099-12-31</td>
-        </tr></tbody></table>
-      `),
-    );
-
+  it("accepts and seals a consistent EPRA-formatted claim without a live call", async () => {
     const result = await verifyProviderCredential(epraInput());
 
-    expect(result.level).toBe("AUTHORITATIVE");
+    expect(result.level).toBe("SELF_ATTESTED");
     expect(result.holderMatched).toBe(true);
-    expect(String(fetchMock.mock.calls[0][0])).toContain(
-      "LicenceApplicationSearch%5BLicenceNumber%5D=EPRA%2FEW%2F01234",
-    );
+    expect(result.details?.reference).toMatch(/^OEV1-CREDENTIAL-/);
+    expect(result.details?.authenticityEstablished).toBe(false);
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("rejects a licence that belongs to a different EPRA holder", async () => {
-    fetchMock.mockResolvedValueOnce(
-      new Response(`
-        <table><tbody><tr>
-          <td>1</td><td>JOHN OTHER PERSON</td><td>Class B</td>
-          <td>EPRA/EW/01234</td><td>Nairobi</td><td>2099-12-31</td>
-        </tr></tbody></table>
-      `),
-    );
-
-    const result = await verifyProviderCredential(epraInput());
-
-    expect(result.level).toBe("REJECTED");
-    expect(result.reason).toContain("holder name does not match");
-  });
-
-  it("rejects a non-EPRA issuer for an electrical provider", async () => {
+  it("rejects a non-EPRA issuer claim for an electrical provider", async () => {
     const result = await verifyProviderCredential(
       epraInput({ certificationIssuer: "Unknown Training Centre" }),
     );
@@ -71,72 +73,61 @@ describe("verifyProviderCredential", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("requires manual official evidence when EPRA is unavailable", async () => {
-    fetchMock.mockRejectedValueOnce(new Error("network unavailable"));
+  it("rejects a credential number confirmation mismatch", async () => {
+    const result = await verifyProviderCredential(
+      epraInput({ certificationNumberConfirmation: "EPRA/EW/73916" }),
+    );
+
+    expect(result.level).toBe("REJECTED");
+    expect(result.reason).toContain("do not match");
+  });
+
+  it("rejects a credential holder name mismatch", async () => {
+    const result = await verifyProviderCredential(
+      epraInput({ certificationHolderName: "John Other Person" }),
+    );
+
+    expect(result.level).toBe("REJECTED");
+    expect(result.holderMatched).toBe(false);
+  });
+
+  it("rejects a qualification title inconsistent with the service category", async () => {
+    const result = await verifyProviderCredential({
+      ...epraInput(),
+      serviceCategory: "Mechanic",
+      certificationNumber: "NITA/GTT/73915",
+      certificationNumberConfirmation: "NITA/GTT/73915",
+      certificationIssuer: "NITA",
+      certificationName: "Food Handling Certificate",
+    });
+
+    expect(result.level).toBe("REJECTED");
+    expect(result.qualificationMatched).toBe(false);
+  });
+
+  it("rejects an unlisted issuer because there is no manual approval fallback", async () => {
+    const result = await verifyProviderCredential({
+      ...epraInput(),
+      serviceCategory: "Mechanic",
+      certificationNumber: "ATC/MVM/73915",
+      certificationNumberConfirmation: "ATC/MVM/73915",
+      certificationIssuer: "Acme Technical College",
+      certificationName: "Motor Vehicle Mechanic Certificate",
+    });
+
+    expect(result.level).toBe("REJECTED");
+    expect(result.issuerMatched).toBe(false);
+    expect(result.reason).toContain("approved-issuer reference list");
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("fails closed if evidence cannot be sealed", async () => {
+    delete process.env.OFFLINE_VERIFICATION_SECRET;
+    delete process.env.CLERK_SECRET_KEY;
 
     const result = await verifyProviderCredential(epraInput());
 
-    expect(result.level).toBe("INCONCLUSIVE");
-    expect(result.reason).toContain("administrator must verify");
-  });
-
-  it("corroborates an exact KNQA issuer and qualification through its two endpoints", async () => {
-    fetchMock
-      .mockResolvedValueOnce(
-        new Response(
-          `
-            <input name="csrfmiddlewaretoken" value="csrf-token">
-            <select id="institutionName">
-              <option value="8">National Industrial Training Authority</option>
-            </select>
-          `,
-          { headers: { "set-cookie": "csrftoken=cookie-token; Path=/" } },
-        ),
-      )
-      .mockResolvedValueOnce(
-        new Response(`
-          <div><strong>Qualification Name:</strong></div>
-          <div class="col-xs-6 col-sm-6">Motor Vehicle Mechanic I</div>
-        `),
-      );
-
-    const result = await verifyProviderCredential({
-      fullName: "Jane Wanjiku Doe",
-      serviceCategory: "Mechanic",
-      certificationNumber: "NITA/GTT/12345",
-      certificationIssuer: "NITA",
-      certificationName: "Motor Vehicle Mechanic I",
-    });
-
-    expect(result.level).toBe("CORROBORATED");
-    expect(result.issuerMatched).toBe(true);
-    expect(result.qualificationMatched).toBe(true);
-    expect(fetchMock).toHaveBeenCalledTimes(2);
-    expect(String(fetchMock.mock.calls[1][0])).toBe(
-      "https://nqd.knqa.go.ke/query-qualifications/",
-    );
-  });
-
-  it("does not claim holder verification from a KNQA issuer match", async () => {
-    fetchMock.mockResolvedValueOnce(
-      new Response(`
-        <input name="csrfmiddlewaretoken" value="csrf-token">
-        <select id="institutionName">
-          <option value="8">National Industrial Training Authority</option>
-        </select>
-      `),
-    );
-
-    const result = await verifyProviderCredential({
-      fullName: "Jane Wanjiku Doe",
-      serviceCategory: "Mechanic",
-      certificationNumber: "OTHER/12345",
-      certificationIssuer: "Unknown Training Centre",
-      certificationName: "Motor Vehicle Mechanic I",
-    });
-
-    expect(result.level).toBe("INCONCLUSIVE");
-    expect(result.holderMatched).toBeNull();
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(result.level).toBe("UNAVAILABLE");
+    expect(result.details?.errorCode).toBe("EVIDENCE_SEAL_NOT_CONFIGURED");
   });
 });

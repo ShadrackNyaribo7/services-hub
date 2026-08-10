@@ -1,4 +1,11 @@
 import LegalPage from "@/components/LegalPage";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Terms of Service",
+  description: "Terms governing use of the PATANAFUU services marketplace.",
+  alternates: { canonical: "/terms" },
+};
 
 export default function TermsOfService() {
   return (
@@ -8,8 +15,8 @@ export default function TermsOfService() {
           Acceptance of Terms
         </h2>
         <p>
-          By accessing and using SERVICE-HUB, you accept and agree to be bound
-          by the terms and provisions of this agreement. If you do not agree to
+          By accessing and using PATANAFUU, you accept and agree to be bound by
+          the terms and provisions of this agreement. If you do not agree to
           abide by these terms, please do not use our service.
         </p>
       </section>
@@ -19,15 +26,14 @@ export default function TermsOfService() {
           Service Description
         </h2>
         <p>
-          SERVICE-HUB is a platform that connects clients with verified service
-          providers. We facilitate:
+          PATANAFUU is a platform that connects clients with providers approved
+          through structured offline evidence review. We facilitate:
         </p>
         <ul className="list-disc ml-6 mt-2">
           <li>Service provider applications and verification</li>
           <li>Client booking of services</li>
           <li>Payment processing through M-Pesa</li>
           <li>Service provider directory and search</li>
-          <li>Integration with third-party service platforms</li>
         </ul>
       </section>
 
@@ -35,7 +41,7 @@ export default function TermsOfService() {
         <h2 className="text-2xl font-semibold text-white mb-4">
           User Responsibilities
         </h2>
-        <p>As a user of SERVICE-HUB, you agree to:</p>
+        <p>As a user of PATANAFUU, you agree to:</p>
         <ul className="list-disc ml-6 mt-2">
           <li>Provide accurate and truthful information</li>
           <li>Maintain the security of your account credentials</li>
@@ -56,7 +62,31 @@ export default function TermsOfService() {
           <li>Maintain professional standards and conduct</li>
           <li>Honor confirmed bookings and schedules</li>
           <li>Comply with industry regulations and standards</li>
+          <li>
+            Enable precise device location, keep the Provider Operations screen
+            active, and maintain uninterrupted authenticated location heartbeats
+            throughout each in-progress job
+          </li>
+          <li>
+            Never spoof, falsify, relay, obstruct, or attempt to bypass
+            operational location safety controls
+          </li>
         </ul>
+      </section>
+
+      <section>
+        <h2 className="text-2xl font-semibold text-white mb-4">
+          Operational Location Safety
+        </h2>
+        <p>
+          A paid booking cannot enter active operation until the provider gives
+          explicit location consent and supplies a sufficiently precise live
+          position. Location heartbeats are required while work is in progress,
+          and provider completion requires a fresh accepted heartbeat. Missing,
+          stale, low-accuracy, or implausible updates may pause operational
+          assurance and create an automatic security record; they do not create
+          an admin-approval stage in normal booking completion.
+        </p>
       </section>
 
       <section>
@@ -96,15 +126,15 @@ export default function TermsOfService() {
         <h2 className="text-2xl font-semibold text-white mb-4">
           Verification and Background Checks
         </h2>
-        <p>We conduct verification of service providers including:</p>
+        <p>We review service-provider submissions using:</p>
         <ul className="list-disc ml-6 mt-2">
-          <li>Professional credential validation</li>
-          <li>Identity verification</li>
-          <li>Police clearance checks where applicable</li>
-          <li>Professional body verification</li>
+          <li>Document-number format and duplicate-entry checks</li>
+          <li>Cross-document holder-name consistency checks</li>
+          <li>Professional credential plausibility checks</li>
+          <li>Tamper-evident audit seals and automatic policy evaluation</li>
           <li>
-            Approval requires recorded official evidence; format checks alone
-            are not verification
+            These offline checks do not authenticate records against a live
+            government, police, regulator, or issuer database
           </li>
           <li>
             However, we cannot guarantee the completeness or accuracy of all
@@ -117,7 +147,7 @@ export default function TermsOfService() {
         <h2 className="text-2xl font-semibold text-white mb-4">
           Limitation of Liability
         </h2>
-        <p>SERVICE-HUB is not liable for:</p>
+        <p>PATANAFUU is not liable for:</p>
         <ul className="list-disc ml-6 mt-2">
           <li>Quality of services provided by third-party providers</li>
           <li>Direct or indirect damages resulting from service use</li>
@@ -159,7 +189,7 @@ export default function TermsOfService() {
           Privacy and Data Protection
         </h2>
         <p>
-          Your use of SERVICE-HUB is also governed by our Privacy Policy, which
+          Your use of PATANAFUU is also governed by our Privacy Policy, which
           describes how we collect, use, and protect your personal information.
         </p>
       </section>

@@ -1,4 +1,9 @@
 import Link from "next/link";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  alternates: { canonical: "/" },
+};
 
 export default function Home() {
   return (
@@ -9,17 +14,19 @@ export default function Home() {
         </p>
 
         <h1 className="max-w-3xl text-3xl font-bold tracking-tight sm:text-4xl md:text-6xl">
-          Book verified service provider.
+          Book an approved service provider.
         </h1>
 
         <p className="mt-5 max-w-2xl text-base text-slate-300 sm:text-lg">
-          The centre for you to connect with validated service providers.
+          Connect with providers approved through structured offline evidence
+          checks, then book and pay securely.
         </p>
 
         <div className="loading mt-8 flex flex-col gap-4 sm:flex-row">
           <Link
             href="/providers/apply"
-            className="min-h-[44px] rounded-md bg-emerald-600 px-5 py-3 text-center font-semibold text-white"
+            prefetch={false}
+            className="min-h-[44px] rounded-md bg-emerald-700 px-5 py-3 text-center font-semibold text-white hover:bg-emerald-800"
           >
             Apply as Provider
           </Link>

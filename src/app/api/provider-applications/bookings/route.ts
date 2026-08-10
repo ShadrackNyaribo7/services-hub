@@ -1,47 +1,94 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { mpesaService } from "@/lib/mpesa/mpesaService";
 import {
   calculateMarketplaceProfit,
   validateServiceAmount,
 } from "@/lib/pricing/profitEngine";
+import {
+  readBoundedJsonObject,
+  readTextInput,
+  RequestInputError,
+} from "@/lib/verification/requestGuards";
+
+const MAXIMUM_ADVANCE_BOOKING_DAYS = 366;
 
 export async function POST(request: Request) {
-  try {
-    const { userId } = await auth();
+  const { userId } = await auth();
+  if (!userId) {
+    return NextResponse.json(
+      { error: "You must be signed in to book." },
+      { status: 401 },
+    );
+  }
 
-    if (!userId) {
+  try {
+    const body = await readBoundedJsonObject(request);
+    const providerProfileId = readTextInput(body, "providerProfileId", 64);
+    const clientName = readTextInput(body, "clientName", 120);
+    const clientPhone = mpesaService.formatPhoneNumber(
+      readTextInput(body, "clientPhone", 24),
+    );
+    const mpesaPhoneNumber = mpesaService.formatPhoneNumber(
+      readTextInput(body, "mpesaPhoneNumber", 24),
+    );
+    const county = readTextInput(body, "county", 80);
+    const scheduledDateValue = readTextInput(body, "scheduledDate", 64);
+    const notes = readTextInput(body, "notes", 2_000);
+
+    if (
+      !providerProfileId ||
+      !clientName ||
+      !county ||
+      !scheduledDateValue ||
+      !clientPhone ||
+      !mpesaPhoneNumber
+    ) {
       return NextResponse.json(
-        { error: "You must be signed in to book." },
-        { status: 401 },
+        { error: "Missing required booking fields." },
+        { status: 400 },
       );
     }
 
-    const body = await request.json();
-    const {
-      providerProfileId,
-      clientName,
-      clientPhone,
-      county,
-      scheduledDate,
-      notes,
-      amount,
-      mpesaPhoneNumber,
-    } = body;
-
-    if (!providerProfileId || !clientName || !clientPhone || !county || !scheduledDate) {
-      return NextResponse.json({ error: "Missing required fields." }, { status: 400 });
+    if (
+      !mpesaService.validatePhoneNumber(clientPhone) ||
+      !mpesaService.validatePhoneNumber(mpesaPhoneNumber)
+    ) {
+      return NextResponse.json(
+        { error: "Enter valid Kenyan mobile and M-Pesa phone numbers." },
+        { status: 422 },
+      );
     }
 
-    const amountValidation = validateServiceAmount(amount);
+    const scheduledDate = new Date(scheduledDateValue);
+    const latestAllowedDate = new Date(
+      Date.now() + MAXIMUM_ADVANCE_BOOKING_DAYS * 24 * 60 * 60 * 1000,
+    );
+    if (
+      Number.isNaN(scheduledDate.getTime()) ||
+      scheduledDate <= new Date() ||
+      scheduledDate > latestAllowedDate
+    ) {
+      return NextResponse.json(
+        { error: "Choose a valid future booking date within one year." },
+        { status: 422 },
+      );
+    }
+
+    const amountValidation = validateServiceAmount(body.amount);
     if (!amountValidation.valid) {
-      return NextResponse.json({ error: amountValidation.error }, { status: 400 });
+      return NextResponse.json(
+        { error: amountValidation.error },
+        { status: 400 },
+      );
     }
 
     const providerProfile = await prisma.providerProfile.findUnique({
       where: { id: providerProfileId },
       select: {
         id: true,
+        userId: true,
         serviceCategory: true,
         verificationStatus: true,
       },
@@ -54,6 +101,13 @@ export async function POST(request: Request) {
       );
     }
 
+    if (providerProfile.userId === userId) {
+      return NextResponse.json(
+        { error: "Providers cannot create bookings with themselves." },
+        { status: 409 },
+      );
+    }
+
     const profit = calculateMarketplaceProfit({
       amount: amountValidation.amount,
       serviceCategory: providerProfile.serviceCategory,
@@ -62,18 +116,19 @@ export async function POST(request: Request) {
     const booking = await prisma.booking.create({
       data: {
         providerProfileId,
+        clientUserId: userId,
         clientName,
         clientPhone,
         county,
-        scheduledDate: new Date(scheduledDate),
-        notes,
+        scheduledDate,
+        notes: notes || null,
         amount: profit.serviceAmount,
         developerFee: profit.developerFee,
         providerAmount: profit.providerAmount,
         commissionRate: profit.commissionRate,
         grossPlatformFee: profit.grossPlatformFee,
         paymentProcessingFee: profit.paymentProcessingFee,
-        mpesaPhoneNumber: mpesaPhoneNumber || undefined,
+        mpesaPhoneNumber,
         paymentMethod: "MPESA",
         paymentStatus: "PENDING",
       },
@@ -81,7 +136,17 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ booking, profit }, { status: 201 });
   } catch (error) {
-    console.error(error);
-    return NextResponse.json({ error: "Could not create booking." }, { status: 500 });
+    if (error instanceof RequestInputError) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.status },
+      );
+    }
+
+    console.error("Booking creation error:", error);
+    return NextResponse.json(
+      { error: "Could not create booking." },
+      { status: 500 },
+    );
   }
 }

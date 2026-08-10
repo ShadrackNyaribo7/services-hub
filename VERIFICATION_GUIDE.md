@@ -1,136 +1,85 @@
-# Automated Provider Verification
+# Offline Provider Evidence Validation
 
-National ID and DCI Police Clearance Certificate checks are automated and
-fail closed. An administrator cannot approve either record with a checkbox or
-manual lookup. Approval requires a fresh authoritative response, a matching
-applicant name and ID, a matching police-clearance number, and stored audit
-references.
+Provider onboarding does not call a live National ID, DCI, police-clearance,
+EPRA, KNQA, regulator, or credential-issuer database. The system validates and
+seals the evidence entered by the applicant, then automatically approves only
+submissions that pass every rule. It never labels offline evidence as
+authoritative, and administrator action is not part of onboarding.
 
-## Government onboarding required
+## Security boundary
 
-National ID verification requires organizational access to Kenya's National
-Population Data Management service (formerly IPRS). The official onboarding
-requirements, connection fee, and per-verification charge are published here:
+Offline validation can detect malformed, inconsistent, replayed, or altered
+input. It cannot establish that a government agency or credential issuer
+created a document, that the document remains valid, or that the applicant is
+the person described by it. The UI, API responses, stored evidence levels, and
+admin workflow state this limitation explicitly.
 
-https://usajili.go.ke/national-population-data-management-npdm-formerly-iprs
+## Validation layers
 
-The public DCI checker is an interactive service with a security question and
-anti-bot protection:
+Every application is checked on the server. Browser validation is only a
+usability aid.
 
-https://dci.ecitizen.go.ke/verify
+1. The applicant must be authenticated with Clerk.
+2. JSON requests must use the correct content type and stay within the request
+   size and field-length limits.
+3. Only supported service categories are accepted.
+4. National ID, police-clearance, and credential identifiers must meet strict
+   character and length rules.
+5. Placeholder, sequential, repeated, and low-diversity identifiers are
+   rejected.
+6. ID, police-clearance, and credential numbers must be distinct.
+7. The applicant must enter ID, police-clearance, and credential numbers twice.
+8. Names entered exactly as printed on each document must match the application
+   name after safe normalization.
+9. Credential issuer claims, number patterns, and qualification titles must be
+   consistent with the selected service category. An issuer outside the local
+   approved-issuer reference list is rejected because there is no manual
+   approval fallback.
+10. Identifiers already attached to another local provider account are
+    rejected as potential replay.
+11. Accepted fields are bound to a versioned HMAC-SHA-256 evidence reference.
+12. Every accepted, sealed submission is set to `APPROVED` automatically.
+13. The admin page is post-approval oversight only. An authorized administrator
+    can reject or suspend a provider, but no administrator action is required
+    for production onboarding.
 
-The app does not scrape that page or bypass its controls. Obtain an authorized
-machine-to-machine DCI integration from DCI/eCitizen, or place a server-side
-gateway approved by those agencies in front of the issued integration.
+## Evidence sealing secret
 
-## Server-only environment variables
-
-Configure both providers in the deployment environment. Never prefix these
-variables with `NEXT_PUBLIC_`.
+Configure a dedicated, random server-only secret of at least 32 characters:
 
 ```text
-KENYA_IDENTITY_VERIFY_URL=https://authorized-identity-endpoint.example/verify
-KENYA_IDENTITY_API_TOKEN=replace-with-issued-server-token
-KENYA_IDENTITY_SOURCE_NAME=Kenya NPDM identity verification
-
-KENYA_DCI_VERIFY_URL=https://authorized-dci-endpoint.example/verify
-KENYA_DCI_API_TOKEN=replace-with-issued-server-token
-KENYA_DCI_SOURCE_NAME=Kenya DCI police-clearance verification
+OFFLINE_VERIFICATION_SECRET=replace-with-a-random-secret-of-at-least-32-characters
 ```
 
-The default authorization header is `Authorization: Bearer <token>`. Providers
-using another issued header or scheme can be configured with:
+If this variable is absent, the validator falls back to the server-only
+`CLERK_SECRET_KEY` with domain separation. If neither value is at least 32
+characters, validation fails closed with `EVIDENCE_SEAL_NOT_CONFIGURED`.
 
-```text
-KENYA_IDENTITY_AUTH_HEADER=X-API-Key
-KENYA_IDENTITY_AUTH_SCHEME=
-KENYA_DCI_AUTH_HEADER=X-API-Key
-KENYA_DCI_AUTH_SCHEME=
+Never prefix the secret with `NEXT_PUBLIC_`. Rotating it changes regenerated
+evidence seals; any later document revalidation requires a fresh submission.
+
+## Stored evidence states
+
+- `SELF_ATTESTED`: server rules accepted and sealed the applicant's entries and
+  the local policy may approve the profile automatically; issuer authenticity
+  has not been established.
+- `REJECTED`: one or more offline rules failed.
+- `UNAVAILABLE`: the server could not create a protected evidence seal.
+
+An approved provider is bookable immediately after all offline rules pass and
+the local profile is set to `APPROVED`. Public provider listings and booking
+creation filter for that status. Administrators retain post-approval suspension
+and rejection controls.
+
+## Operational checks
+
+Run the following before deployment:
+
+```bash
+npm run lint
+npm test -- --runInBand
+npm run build
 ```
 
-## Gateway contract
-
-The app sends `POST` requests as JSON. The identity request is:
-
-```json
-{
-  "verificationType": "NATIONAL_ID",
-  "subject": {
-    "idNumber": "28745163",
-    "fullName": "Jane Wanjiku Doe"
-  },
-  "consent": {
-    "granted": true,
-    "purpose": "PROVIDER_ONBOARDING"
-  }
-}
-```
-
-The DCI request also contains:
-
-```json
-{
-  "verificationType": "POLICE_CLEARANCE_CERTIFICATE",
-  "subject": {
-    "idNumber": "28745163",
-    "fullName": "Jane Wanjiku Doe"
-  },
-  "document": {
-    "number": "PCC-12345"
-  },
-  "consent": {
-    "granted": true,
-    "purpose": "PROVIDER_ONBOARDING"
-  }
-}
-```
-
-A successful identity response must have this shape:
-
-```json
-{
-  "verified": true,
-  "reference": "provider-audit-reference",
-  "checkedAt": "2026-07-24T20:00:00.000Z",
-  "subject": {
-    "idNumber": "28745163",
-    "fullName": "DOE JANE WANJIKU"
-  }
-}
-```
-
-A successful DCI response must also return the verified document number. A
-provider may include `validUntil`; an expired date is rejected.
-
-```json
-{
-  "verified": true,
-  "reference": "dci-audit-reference",
-  "checkedAt": "2026-07-24T20:00:00.000Z",
-  "subject": {
-    "idNumber": "28745163",
-    "fullName": "Jane Wanjiku Doe"
-  },
-  "document": {
-    "number": "PCC-12345",
-    "validUntil": "2027-07-24T00:00:00.000Z"
-  }
-}
-```
-
-`checkedAt` must be no more than 15 minutes old. Responses missing the audit
-reference, returning mismatched records, or failing schema validation are not
-accepted.
-
-## Failure behavior
-
-- Missing provider configuration returns HTTP 503 and blocks approval.
-- Provider downtime or malformed evidence returns HTTP 503 and blocks approval.
-- Record mismatches return HTTP 422 and block approval.
-- Successful automated results are stored as `AUTHORITATIVE` with method
-  `AUTOMATED_OFFICIAL_API`, their source, timestamp, and audit reference.
-- Existing legacy `AUTHORITATIVE_MANUAL` evidence is not sufficient for a new
-  approval; the admin action reruns the automated checks.
-
-Professional licence verification remains a separate process. This document
-only governs National ID and DCI Police Clearance Certificate automation.
+The verification regression suites assert that no live `fetch` call occurs,
+including when old Peleza-style environment variables are present.

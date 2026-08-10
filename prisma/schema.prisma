@@ -22,8 +22,8 @@ model User {
 }
 
 model ProviderProfile {
-  id                            String             @id @default(cuid())
-  userId                        String             @unique
+  id                            String                  @id @default(cuid())
+  userId                        String                  @unique
   county                        String
   serviceCategory               String
   policeClearanceNumber         String?
@@ -49,12 +49,13 @@ model ProviderProfile {
   policeVerificationReference   String?
   policeVerifiedAt              DateTime?
   policeVerifiedBy              String?
-  verificationStatus            VerificationStatus @default(PENDING)
+  verificationStatus            VerificationStatus      @default(PENDING)
   adminNotes                    String?
-  createdAt                     DateTime           @default(now())
+  createdAt                     DateTime                @default(now())
   bookings                      Booking[]
+  locationEvents                ProviderLocationEvent[]
   ratings                       Rating[]
-  user                          User               @relation(fields: [userId], references: [id])
+  user                          User                    @relation(fields: [userId], references: [id])
 
   // Rating aggregation fields
   averageRating  Float?      @default(0)
@@ -68,39 +69,55 @@ model ProviderProfile {
 }
 
 model Booking {
-  id                     String          @id @default(cuid())
-  providerProfileId      String
-  clientName             String
-  clientPhone            String
-  county                 String
-  scheduledDate          DateTime
-  notes                  String?
-  status                 BookingStatus   @default(REQUESTED)
-  createdAt              DateTime        @default(now())
-  amount                 Float?
-  paymentStatus          PaymentStatus   @default(PENDING)
-  mpesaPhoneNumber       String?
-  mpesaTransactionId     String?
-  mpesaReceiptNumber     String?
-  mpesaCheckoutRequestId String?         @unique
-  mpesaMerchantRequestId String?
-  paymentMethod          String?         @default("MPESA")
-  paymentCreatedAt       DateTime?
-  developerFee           Float?          @default(0)
-  grossPlatformFee       Float?          @default(0)
-  paymentProcessingFee   Float?          @default(0)
-  providerAmount         Float?          @default(0)
-  commissionRate         Float?          @default(0.12)
-  serviceConfirmed       Boolean         @default(false)
-  serviceConfirmedAt     DateTime?
-  clientConfirmed        Boolean         @default(false)
-  clientConfirmedAt      DateTime?
-  suspiciousActivity     Boolean         @default(false)
-  securityFlag           String?
-  escrowReleased         Boolean         @default(false)
-  ratingEligibleAt       DateTime?
-  providerProfile        ProviderProfile @relation(fields: [providerProfileId], references: [id])
-  rating                 Rating?
+  id                         String                  @id @default(cuid())
+  providerProfileId          String
+  clientUserId               String?
+  clientName                 String
+  clientPhone                String
+  county                     String
+  scheduledDate              DateTime
+  notes                      String?
+  status                     BookingStatus           @default(REQUESTED)
+  createdAt                  DateTime                @default(now())
+  amount                     Float?
+  paymentStatus              PaymentStatus           @default(PENDING)
+  mpesaPhoneNumber           String?
+  mpesaTransactionId         String?
+  mpesaReceiptNumber         String?                 @unique
+  mpesaCheckoutRequestId     String?                 @unique
+  mpesaMerchantRequestId     String?
+  mpesaAccountReference      String?                 @unique
+  mpesaInitiationToken       String?                 @unique
+  mpesaInitiatedAt           DateTime?
+  paymentMethod              String?                 @default("MPESA")
+  paymentCreatedAt           DateTime?
+  developerFee               Float?                  @default(0)
+  grossPlatformFee           Float?                  @default(0)
+  paymentProcessingFee       Float?                  @default(0)
+  providerAmount             Float?                  @default(0)
+  commissionRate             Float?                  @default(0.12)
+  serviceConfirmed           Boolean                 @default(false)
+  serviceConfirmedAt         DateTime?
+  clientConfirmed            Boolean                 @default(false)
+  clientConfirmedAt          DateTime?
+  suspiciousActivity         Boolean                 @default(false)
+  securityFlag               String?
+  escrowReleased             Boolean                 @default(false)
+  ratingEligibleAt           DateTime?
+  operationStartedAt         DateTime?
+  operationEndedAt           DateTime?
+  providerLocationConsentAt  DateTime?
+  providerLocationLastSeenAt DateTime?
+  providerLocationCapturedAt DateTime?
+  providerLocationAccuracyM  Float?
+  providerLocationRiskFlag   String?
+  providerLocationGapCount   Int                     @default(0)
+  providerProfile            ProviderProfile         @relation(fields: [providerProfileId], references: [id])
+  locationEvents             ProviderLocationEvent[]
+  rating                     Rating?
+
+  @@index([clientUserId])
+  @@index([providerProfileId, status])
 }
 
 enum UserRole {
@@ -119,9 +136,34 @@ enum VerificationStatus {
 enum BookingStatus {
   REQUESTED
   ACCEPTED
+  IN_PROGRESS
+  AWAITING_CLIENT_CONFIRMATION
   REJECTED
   COMPLETED
   CANCELLED
+}
+
+model ProviderLocationEvent {
+  id                   String            @id @default(cuid())
+  bookingId            String
+  providerProfileId    String
+  capturedAt           DateTime
+  receivedAt           DateTime          @default(now())
+  accuracyM            Float
+  encryptedCoordinates String
+  eventType            LocationEventType @default(HEARTBEAT)
+  riskFlags            String[]          @default([])
+  booking              Booking           @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  providerProfile      ProviderProfile   @relation(fields: [providerProfileId], references: [id], onDelete: Cascade)
+
+  @@index([bookingId, receivedAt])
+  @@index([providerProfileId, receivedAt])
+}
+
+enum LocationEventType {
+  START
+  HEARTBEAT
+  REJECTED
 }
 
 enum PaymentStatus {

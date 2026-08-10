@@ -20,8 +20,20 @@ export default function ProviderApplyPage() {
       county: formData.get("county") as string,
       serviceCategory: formData.get("serviceCategory") as string,
       policeClearanceNumber: formData.get("policeClearanceNumber") as string,
+      policeClearanceNumberConfirmation: formData.get(
+        "policeClearanceNumberConfirmation",
+      ) as string,
+      policeClearanceName: formData.get("policeClearanceName") as string,
       idNumber: formData.get("idNumber") as string,
+      idNumberConfirmation: formData.get("idNumberConfirmation") as string,
+      identityDocumentName: formData.get("identityDocumentName") as string,
       certificationNumber: formData.get("certificationNumber") as string,
+      certificationNumberConfirmation: formData.get(
+        "certificationNumberConfirmation",
+      ) as string,
+      certificationHolderName: formData.get(
+        "certificationHolderName",
+      ) as string,
       certificationIssuer: formData.get("certificationIssuer") as string,
       certificationName: formData.get("certificationName") as string,
       verificationConsent: formData.get("verificationConsent") === "yes",
@@ -101,7 +113,41 @@ export default function ProviderApplyPage() {
               name="idNumber"
               required
               inputMode="numeric"
+              pattern="[0-9]{7,10}"
+              minLength={7}
+              maxLength={10}
+              autoComplete="off"
               className="mt-2 w-full rounded-md border px-3 py-2 min-h-[44px]"
+            />
+          </label>
+
+          <label className="block">
+            <span className="font-medium text-emerald-400">
+              Re-enter ID number
+            </span>
+            <input
+              name="idNumberConfirmation"
+              required
+              inputMode="numeric"
+              pattern="[0-9]{7,10}"
+              minLength={7}
+              maxLength={10}
+              autoComplete="off"
+              className="mt-2 min-h-[44px] w-full rounded-md border px-3 py-2"
+            />
+          </label>
+
+          <label className="block">
+            <span className="font-medium text-emerald-400">
+              Full name exactly as printed on ID
+            </span>
+            <input
+              name="identityDocumentName"
+              required
+              minLength={5}
+              maxLength={120}
+              autoComplete="off"
+              className="mt-2 min-h-[44px] w-full rounded-md border px-3 py-2"
             />
           </label>
 
@@ -112,7 +158,40 @@ export default function ProviderApplyPage() {
             <input
               name="policeClearanceNumber"
               required
+              minLength={5}
+              maxLength={64}
+              pattern="[A-Za-z0-9][A-Za-z0-9/-]{4,63}"
+              autoComplete="off"
               className="mt-2 w-full rounded-md border px-3 py-2 min-h-[44px]"
+            />
+          </label>
+
+          <label className="block">
+            <span className="font-medium text-emerald-400">
+              Re-enter Police Clearance Certificate number
+            </span>
+            <input
+              name="policeClearanceNumberConfirmation"
+              required
+              minLength={5}
+              maxLength={64}
+              pattern="[A-Za-z0-9][A-Za-z0-9/-]{4,63}"
+              autoComplete="off"
+              className="mt-2 min-h-[44px] w-full rounded-md border px-3 py-2"
+            />
+          </label>
+
+          <label className="block">
+            <span className="font-medium text-emerald-400">
+              Full name exactly as printed on Police Clearance Certificate
+            </span>
+            <input
+              name="policeClearanceName"
+              required
+              minLength={5}
+              maxLength={120}
+              autoComplete="off"
+              className="mt-2 min-h-[44px] w-full rounded-md border px-3 py-2"
             />
           </label>
 
@@ -133,6 +212,33 @@ export default function ProviderApplyPage() {
               Electrical providers must use their EPRA electrical-worker licence
               number.
             </span>
+          </label>
+
+          <label className="block">
+            <span className="font-medium text-emerald-400">
+              Re-enter professional certificate/license number
+            </span>
+            <input
+              name="certificationNumberConfirmation"
+              required={credentialRequired}
+              maxLength={64}
+              autoComplete="off"
+              className="mt-2 min-h-[44px] w-full rounded-md border px-3 py-2"
+            />
+          </label>
+
+          <label className="block">
+            <span className="font-medium text-emerald-400">
+              Full name exactly as printed on the credential
+            </span>
+            <input
+              name="certificationHolderName"
+              required={credentialRequired}
+              minLength={5}
+              maxLength={120}
+              autoComplete="off"
+              className="mt-2 min-h-[44px] w-full rounded-md border px-3 py-2"
+            />
           </label>
 
           <label className="block">
@@ -182,8 +288,11 @@ export default function ProviderApplyPage() {
               className="mt-1 size-4 shrink-0"
             />
             <span>
-              I consent to verification of my National ID, DCI Police Clearance
-              Certificate, and professional credentials using official sources.
+              I attest that every identifier and printed name above exactly
+              matches the original document. I consent to secure storage,
+              offline consistency checks, tamper-evident audit sealing, and
+              automatic policy evaluation. I understand that no live government,
+              DCI, regulator, or issuer database lookup will be performed.
             </span>
           </label>
 

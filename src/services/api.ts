@@ -24,22 +24,26 @@ import {
   RatingResponse,
   RatingEligibility,
   ProviderLeaderboardResponse,
-  ProviderRanking
+  ProviderRanking,
 } from "@/types";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '';
-const UFP_API_BASE_URL = process.env.UFP_API_BASE_URL || 'https://api.unifiedfitnessplatform.ai';
-const UFP_ENVIRONMENT = process.env.UFP_ENVIRONMENT || 'production';
+// Internal browser requests must remain same-origin. The public deployment URL is
+// server-only payment configuration and must never redirect authenticated API
+// calls to a build-time hostname.
+const API_BASE_URL = "";
+const UFP_API_BASE_URL =
+  process.env.UFP_API_BASE_URL || "https://api.unifiedfitnessplatform.ai";
+const UFP_ENVIRONMENT = process.env.UFP_ENVIRONMENT || "production";
 
 // Generic API handler with error handling
 async function apiCall<T>(
   endpoint: string,
-  options: RequestInit = {}
+  options: RequestInit = {},
 ): Promise<ApiResponse<T>> {
   try {
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
         ...options.headers,
       },
       ...options,
@@ -49,12 +53,12 @@ async function apiCall<T>(
 
     return {
       data: response.ok ? data : undefined,
-      error: response.ok ? undefined : data.error || 'An error occurred',
+      error: response.ok ? undefined : data.error || "An error occurred",
       status: response.status,
     };
   } catch (error) {
     return {
-      error: error instanceof Error ? error.message : 'Network error',
+      error: error instanceof Error ? error.message : "Network error",
       status: 0,
     };
   }
@@ -63,10 +67,10 @@ async function apiCall<T>(
 // Provider Application Service
 export const providerApplicationService = {
   async submitApplication(
-    application: ProviderApplication
+    application: ProviderApplication,
   ): Promise<ApiResponse<ProviderApplicationResponse>> {
-    return apiCall<ProviderApplicationResponse>('/api/provider-applications', {
-      method: 'POST',
+    return apiCall<ProviderApplicationResponse>("/api/provider-applications", {
+      method: "POST",
       body: JSON.stringify(application),
     });
   },
@@ -74,11 +78,9 @@ export const providerApplicationService = {
 
 // Booking Service
 export const bookingService = {
-  async createBooking(
-    booking: Booking
-  ): Promise<ApiResponse<BookingResponse>> {
-    return apiCall<BookingResponse>('/api/provider-applications/bookings', {
-      method: 'POST',
+  async createBooking(booking: Booking): Promise<ApiResponse<BookingResponse>> {
+    return apiCall<BookingResponse>("/api/provider-applications/bookings", {
+      method: "POST",
       body: JSON.stringify(booking),
     });
   },
@@ -87,17 +89,19 @@ export const bookingService = {
 // Document Verification Service
 export const documentVerificationService = {
   async verifyDocuments(
-    documents: DocumentVerificationRequest
+    documents: DocumentVerificationRequest,
   ): Promise<ApiResponse<DocumentVerificationResponse>> {
-    return apiCall<DocumentVerificationResponse>('/api/documents/verify', {
-      method: 'POST',
+    return apiCall<DocumentVerificationResponse>("/api/documents/verify", {
+      method: "POST",
       body: JSON.stringify(documents),
     });
   },
 
-  async getVerificationStatus(): Promise<ApiResponse<VerificationStatusResponse>> {
-    return apiCall<VerificationStatusResponse>('/api/documents/verify', {
-      method: 'GET',
+  async getVerificationStatus(): Promise<
+    ApiResponse<VerificationStatusResponse>
+  > {
+    return apiCall<VerificationStatusResponse>("/api/documents/verify", {
+      method: "GET",
     });
   },
 };
@@ -105,47 +109,50 @@ export const documentVerificationService = {
 // MPesa Payment Service
 export const mpesaPaymentService = {
   async initiatePayment(
-    payment: MpesaPaymentRequest
+    payment: MpesaPaymentRequest,
   ): Promise<ApiResponse<MpesaPaymentResponse>> {
-    return apiCall<MpesaPaymentResponse>('/api/mpesa/initiate', {
-      method: 'POST',
+    return apiCall<MpesaPaymentResponse>("/api/mpesa/initiate", {
+      method: "POST",
       body: JSON.stringify(payment),
     });
   },
 
   async checkPaymentStatus(
-    bookingId: string
+    bookingId: string,
   ): Promise<ApiResponse<MpesaPaymentStatusResponse>> {
-    return apiCall<MpesaPaymentStatusResponse>(`/api/mpesa/status?bookingId=${bookingId}`, {
-      method: 'GET',
-    });
+    return apiCall<MpesaPaymentStatusResponse>(
+      `/api/mpesa/status?bookingId=${bookingId}`,
+      {
+        method: "GET",
+      },
+    );
   },
 };
 
 // Rating and Ranking Service
 export const ratingService = {
   async checkEligibility(
-    bookingId: string
+    bookingId: string,
   ): Promise<ApiResponse<RatingEligibility>> {
     return apiCall<RatingEligibility>(`/api/ratings/eligibility/${bookingId}`, {
-      method: 'GET',
+      method: "GET",
     });
   },
 
   async submitRating(
-    rating: RatingRequest
+    rating: RatingRequest,
   ): Promise<ApiResponse<RatingResponse>> {
-    return apiCall<RatingResponse>('/api/ratings', {
-      method: 'POST',
+    return apiCall<RatingResponse>("/api/ratings", {
+      method: "POST",
       body: JSON.stringify(rating),
     });
   },
 
   async getProviderRanking(
-    providerId: string
+    providerId: string,
   ): Promise<ApiResponse<ProviderRanking>> {
     return apiCall<ProviderRanking>(`/api/ratings/providers/${providerId}`, {
-      method: 'GET',
+      method: "GET",
     });
   },
 
@@ -157,15 +164,19 @@ export const ratingService = {
     offset?: number;
   }): Promise<ApiResponse<ProviderLeaderboardResponse>> {
     const params = new URLSearchParams();
-    if (filters?.serviceCategory) params.append('serviceCategory', filters.serviceCategory);
-    if (filters?.county) params.append('county', filters.county);
-    if (filters?.tier) params.append('tier', filters.tier);
-    if (filters?.limit) params.append('limit', filters.limit.toString());
-    if (filters?.offset) params.append('offset', filters.offset.toString());
+    if (filters?.serviceCategory)
+      params.append("serviceCategory", filters.serviceCategory);
+    if (filters?.county) params.append("county", filters.county);
+    if (filters?.tier) params.append("tier", filters.tier);
+    if (filters?.limit) params.append("limit", filters.limit.toString());
+    if (filters?.offset) params.append("offset", filters.offset.toString());
 
-    return apiCall<ProviderLeaderboardResponse>(`/api/ratings/leaderboard?${params.toString()}`, {
-      method: 'GET',
-    });
+    return apiCall<ProviderLeaderboardResponse>(
+      `/api/ratings/leaderboard?${params.toString()}`,
+      {
+        method: "GET",
+      },
+    );
   },
 };
 
@@ -177,17 +188,19 @@ class UFPService {
   // Authentication
   async authenticate(): Promise<ApiResponse<UFPAuthResponse>> {
     const authRequest: UFPAuthRequest = {
-      email_id: process.env.UFP_API_EMAIL || '',
-      password: process.env.UFP_API_PASSWORD || '',
-      company_uuid: process.env.UFP_COMPANY_UUID || '',
+      email_id: process.env.UFP_API_EMAIL || "",
+      password: process.env.UFP_API_PASSWORD || "",
+      company_uuid: process.env.UFP_COMPANY_UUID || "",
     };
 
     try {
-      console.log(`UFP Authentication - Environment: ${UFP_ENVIRONMENT}, API: ${UFP_API_BASE_URL}`);
+      console.log(
+        `UFP Authentication - Environment: ${UFP_ENVIRONMENT}, API: ${UFP_API_BASE_URL}`,
+      );
       const response = await fetch(`${UFP_API_BASE_URL}/token`, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify(authRequest),
       });
@@ -196,23 +209,23 @@ class UFPService {
 
       if (response.ok && data.token) {
         this.token = data.token;
-        this.tokenExpiry = Date.now() + (3600 * 1000); // 1 hour expiry
-        console.log('UFP Authentication successful');
+        this.tokenExpiry = Date.now() + 3600 * 1000; // 1 hour expiry
+        console.log("UFP Authentication successful");
         return {
           data: data,
           status: response.status,
         };
       } else {
-        console.error('UFP Authentication failed:', data.error);
+        console.error("UFP Authentication failed:", data.error);
         return {
-          error: data.error || 'Authentication failed',
+          error: data.error || "Authentication failed",
           status: response.status,
         };
       }
     } catch (error) {
-      console.error('UFP Authentication network error:', error);
+      console.error("UFP Authentication network error:", error);
       return {
-        error: error instanceof Error ? error.message : 'Network error',
+        error: error instanceof Error ? error.message : "Network error",
         status: 0,
       };
     }
@@ -229,15 +242,15 @@ class UFPService {
 
   private async ufpApiCall<T>(
     endpoint: string,
-    options: RequestInit = {}
+    options: RequestInit = {},
   ): Promise<ApiResponse<T>> {
     await this.ensureAuthenticated();
 
     try {
       const response = await fetch(`${UFP_API_BASE_URL}${endpoint}`, {
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${this.token}`,
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${this.token}`,
           ...options.headers,
         },
         ...options,
@@ -247,12 +260,12 @@ class UFPService {
 
       return {
         data: response.ok ? data : undefined,
-        error: response.ok ? undefined : data.error || 'An error occurred',
+        error: response.ok ? undefined : data.error || "An error occurred",
         status: response.status,
       };
     } catch (error) {
       return {
-        error: error instanceof Error ? error.message : 'Network error',
+        error: error instanceof Error ? error.message : "Network error",
         status: 0,
       };
     }
@@ -260,17 +273,17 @@ class UFPService {
 
   // Get coaches/trainers
   async getCoaches(tenantId?: string): Promise<ApiResponse<UFPCoach[]>> {
-    const endpoint = tenantId 
-      ? `/tenants/${tenantId}/coaches`
-      : '/coaches';
+    const endpoint = tenantId ? `/tenants/${tenantId}/coaches` : "/coaches";
     return this.ufpApiCall<UFPCoach[]>(endpoint);
   }
 
   // Get appointment types
-  async getAppointmentTypes(tenantId?: string): Promise<ApiResponse<UFPAppointmentType[]>> {
+  async getAppointmentTypes(
+    tenantId?: string,
+  ): Promise<ApiResponse<UFPAppointmentType[]>> {
     const endpoint = tenantId
       ? `/tenants/${tenantId}/appointment-types`
-      : '/appointment-types';
+      : "/appointment-types";
     return this.ufpApiCall<UFPAppointmentType[]>(endpoint);
   }
 
@@ -278,49 +291,51 @@ class UFPService {
   async getAppointments(
     coachId?: string,
     startDate?: string,
-    endDate?: string
+    endDate?: string,
   ): Promise<ApiResponse<UFPAppointment[]>> {
     const params = new URLSearchParams();
-    if (coachId) params.append('coach_id', coachId);
-    if (startDate) params.append('start_date', startDate);
-    if (endDate) params.append('end_date', endDate);
+    if (coachId) params.append("coach_id", coachId);
+    if (startDate) params.append("start_date", startDate);
+    if (endDate) params.append("end_date", endDate);
 
-    const endpoint = `/appointments${params.toString() ? `?${params.toString()}` : ''}`;
+    const endpoint = `/appointments${params.toString() ? `?${params.toString()}` : ""}`;
     return this.ufpApiCall<UFPAppointment[]>(endpoint);
   }
 
   // Create appointment
   async createAppointment(
-    appointment: UFPAppointmentRequest
+    appointment: UFPAppointmentRequest,
   ): Promise<ApiResponse<UFPAppointment>> {
-    return this.ufpApiCall<UFPAppointment>('/appointments', {
-      method: 'POST',
+    return this.ufpApiCall<UFPAppointment>("/appointments", {
+      method: "POST",
       body: JSON.stringify(appointment),
     });
   }
 
   // Book appointment
   async bookAppointment(
-    booking: UFPBookingRequest
+    booking: UFPBookingRequest,
   ): Promise<ApiResponse<UFPBookingResponse>> {
-    return this.ufpApiCall<UFPBookingResponse>('/appointments/booking', {
-      method: 'POST',
+    return this.ufpApiCall<UFPBookingResponse>("/appointments/booking", {
+      method: "POST",
       body: JSON.stringify(booking),
     });
   }
 
   // Get all tenants/locales
   async getTenants(): Promise<ApiResponse<UFPTenant[]>> {
-    return this.ufpApiCall<UFPTenant[]>('/tenants');
+    return this.ufpApiCall<UFPTenant[]>("/tenants");
   }
 
   // Get all coaches across all tenants
-  async getAllCoachesAcrossTenants(): Promise<ApiResponse<UFPTenantWithCoaches[]>> {
+  async getAllCoachesAcrossTenants(): Promise<
+    ApiResponse<UFPTenantWithCoaches[]>
+  > {
     const tenantsResult = await this.getTenants();
-    
+
     if (tenantsResult.error || !tenantsResult.data) {
       return {
-        error: tenantsResult.error || 'Failed to fetch tenants',
+        error: tenantsResult.error || "Failed to fetch tenants",
         status: tenantsResult.status || 500,
       };
     }
@@ -341,7 +356,7 @@ class UFPService {
 
     results.forEach(({ tenant, coaches }) => {
       // Add tenant information to each coach
-      const coachesWithTenant = coaches.map(coach => ({
+      const coachesWithTenant = coaches.map((coach) => ({
         ...coach,
         tenant_id: tenant.id,
         locale: tenant.locale,
@@ -362,17 +377,17 @@ class UFPService {
   // Get all coaches flattened across all tenants
   async getAllCoachesFlattened(): Promise<ApiResponse<UFPCoach[]>> {
     const result = await this.getAllCoachesAcrossTenants();
-    
+
     if (result.error || !result.data) {
       return {
-        error: result.error || 'Failed to fetch coaches',
+        error: result.error || "Failed to fetch coaches",
         status: result.status || 500,
       };
     }
 
     // Flatten all coaches from all tenants
     const allCoaches: UFPCoach[] = [];
-    result.data.forEach(tenant => {
+    result.data.forEach((tenant) => {
       allCoaches.push(...tenant.coaches);
     });
 

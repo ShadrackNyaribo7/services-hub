@@ -5,21 +5,36 @@ import { MOBILE_NAV_ITEMS } from "@/lib/navigation";
 
 export default function MobileNav() {
   const [isOpen, setIsOpen] = useState(false);
-  
+
   return (
     <>
-      <button 
-        onClick={() => setIsOpen(!isOpen)} 
+      <button
+        onClick={() => setIsOpen(!isOpen)}
         className="min-h-[44px] min-w-[44px] p-4 text-emerald-400 md:hidden"
         aria-label="Toggle menu"
         aria-controls="mobile-navigation-menu"
         aria-expanded={isOpen}
       >
-        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg
+          className="w-6 h-6"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
           {isOpen ? (
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M6 18L18 6M6 6l12 12"
+            />
           ) : (
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M4 6h16M4 12h16M4 18h16"
+            />
           )}
         </svg>
       </button>
@@ -33,6 +48,7 @@ export default function MobileNav() {
             <Link
               key={item.href}
               href={item.href}
+              prefetch={false}
               className="block px-6 py-4 text-slate-200 hover:bg-gray-800 hover:text-emerald-400 transition"
               onClick={() => setIsOpen(false)}
             >

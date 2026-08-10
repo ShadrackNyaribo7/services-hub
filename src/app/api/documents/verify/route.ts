@@ -2,45 +2,65 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@clerk/nextjs/server";
 import {
-  getAutomatedRecordEvidenceSummary,
   getCredentialEvidenceSummary,
-  hasAutomatedVerificationServiceFailure,
+  getOfflineRecordEvidenceSummary,
+  hasOfflineValidationConfigurationFailure,
   runProviderQualificationCheck,
 } from "@/lib/verification/qualificationService";
+import {
+  readBoundedJsonObject,
+  readTextInput,
+  RequestInputError,
+} from "@/lib/verification/requestGuards";
 
 export async function POST(request: Request) {
   const { userId } = await auth();
 
   if (!userId) {
     return NextResponse.json(
-      { error: "You must be signed in to verify documents." },
+      { error: "You must be signed in to validate documents." },
       { status: 401 },
     );
   }
 
   try {
-    const body = await request.json();
-    const {
-      idNumber,
-      policeClearanceNumber,
-      certificationNumber,
-      certificationIssuer,
-      certificationName,
-      verificationConsent,
-    } = body;
+    const body = await readBoundedJsonObject(request);
+    const idNumber = readTextInput(body, "idNumber", 16);
+    const idNumberConfirmation = readTextInput(
+      body,
+      "idNumberConfirmation",
+      16,
+    );
+    const identityDocumentName = readTextInput(
+      body,
+      "identityDocumentName",
+      120,
+    );
+    const policeClearanceNumber = readTextInput(
+      body,
+      "policeClearanceNumber",
+      64,
+    );
+    const policeClearanceNumberConfirmation = readTextInput(
+      body,
+      "policeClearanceNumberConfirmation",
+      64,
+    );
+    const policeClearanceName = readTextInput(body, "policeClearanceName", 120);
+    const certificationNumber = readTextInput(body, "certificationNumber", 64);
+    const certificationNumberConfirmation = readTextInput(
+      body,
+      "certificationNumberConfirmation",
+      64,
+    );
+    const certificationHolderName = readTextInput(
+      body,
+      "certificationHolderName",
+      120,
+    );
+    const certificationIssuer = readTextInput(body, "certificationIssuer", 160);
+    const certificationName = readTextInput(body, "certificationName", 160);
 
-    // Validate required fields
-    if (!idNumber || !policeClearanceNumber) {
-      return NextResponse.json(
-        {
-          error:
-            "ID number and police clearance number are required for verification.",
-        },
-        { status: 400 },
-      );
-    }
-
-    // Get user's provider profile
     const providerProfile = await prisma.providerProfile.findUnique({
       where: { userId },
       include: { user: true },
@@ -54,34 +74,44 @@ export async function POST(request: Request) {
     }
 
     if (
-      verificationConsent !== true &&
+      body.verificationConsent !== true &&
       !providerProfile.verificationConsentAt
     ) {
       return NextResponse.json(
         {
           error:
-            "Consent is required to verify identity, police clearance, and professional credentials.",
+            "Attestation is required for offline identity, police-clearance, and credential evidence review.",
         },
         { status: 400 },
       );
     }
 
-    const resolvedCertificationNumber = String(
-      certificationNumber ?? providerProfile.certificationNumber ?? "",
-    ).trim();
-    const resolvedCertificationIssuer = String(
-      certificationIssuer ?? providerProfile.certificationIssuer ?? "",
-    ).trim();
-    const resolvedCertificationName = String(
-      certificationName ?? providerProfile.certificationName ?? "",
-    ).trim();
+    const resolvedCertificationNumber =
+      certificationNumber || providerProfile.certificationNumber || "";
+    const resolvedCertificationNumberConfirmation =
+      certificationNumberConfirmation ||
+      (certificationNumber ? "" : providerProfile.certificationNumber) ||
+      "";
+    const resolvedCertificationHolderName =
+      certificationHolderName ||
+      (certificationNumber ? "" : providerProfile.user.name);
+    const resolvedCertificationIssuer =
+      certificationIssuer || providerProfile.certificationIssuer || "";
+    const resolvedCertificationName =
+      certificationName || providerProfile.certificationName || "";
 
     const qualificationCheck = await runProviderQualificationCheck({
       fullName: providerProfile.user.name,
       serviceCategory: providerProfile.serviceCategory,
       idNumber,
+      idNumberConfirmation,
+      identityDocumentName,
       policeClearanceNumber,
+      policeClearanceNumberConfirmation,
+      policeClearanceName,
       certificationNumber: resolvedCertificationNumber,
+      certificationNumberConfirmation: resolvedCertificationNumberConfirmation,
+      certificationHolderName: resolvedCertificationHolderName,
       certificationIssuer: resolvedCertificationIssuer,
       certificationName: resolvedCertificationName,
     });
@@ -94,28 +124,51 @@ export async function POST(request: Request) {
           qualificationCheck,
         },
         {
-          status: hasAutomatedVerificationServiceFailure(qualificationCheck)
+          status: hasOfflineValidationConfigurationFailure(qualificationCheck)
             ? 503
             : 422,
         },
       );
     }
 
+    const duplicateDocument = await prisma.providerProfile.findFirst({
+      where: {
+        userId: { not: userId },
+        OR: [
+          { idNumber },
+          { policeClearanceNumber },
+          ...(resolvedCertificationNumber
+            ? [{ certificationNumber: resolvedCertificationNumber }]
+            : []),
+        ],
+      },
+      select: { id: true },
+    });
+
+    if (duplicateDocument) {
+      return NextResponse.json(
+        {
+          error:
+            "One or more submitted document identifiers are already associated with another provider application.",
+        },
+        { status: 409 },
+      );
+    }
+
     const credentialEvidence = getCredentialEvidenceSummary(qualificationCheck);
-    const automatedEvidence =
-      getAutomatedRecordEvidenceSummary(qualificationCheck);
+    const offlineEvidence = getOfflineRecordEvidenceSummary(qualificationCheck);
 
     if (
-      !automatedEvidence.identity.authoritative ||
-      !automatedEvidence.policeClearance.authoritative
+      !offlineEvidence.identity.sealed ||
+      !offlineEvidence.policeClearance.sealed ||
+      (resolvedCertificationNumber && !credentialEvidence.offlineValidated)
     ) {
       return NextResponse.json(
-        { error: "Authoritative automated verification evidence is required." },
+        { error: "Complete sealed offline evidence is required." },
         { status: 503 },
       );
     }
 
-    // Update provider profile with document details and verification status
     const updatedProfile = await prisma.providerProfile.update({
       where: { userId },
       data: {
@@ -127,34 +180,31 @@ export async function POST(request: Request) {
         credentialVerificationLevel: credentialEvidence.level,
         credentialVerificationMethod: credentialEvidence.method,
         credentialVerificationSource: credentialEvidence.source,
-        credentialVerifiedAt: credentialEvidence.verifiedAt,
-        credentialManualReference: null,
+        credentialVerifiedAt: null,
+        credentialManualReference: credentialEvidence.reference,
         verificationConsentAt:
           providerProfile.verificationConsentAt ?? new Date(),
-        identityVerificationLevel: automatedEvidence.identity.level,
-        identityVerificationMethod: automatedEvidence.identity.method,
-        identityVerificationSource: automatedEvidence.identity.source,
-        identityVerificationReference: automatedEvidence.identity.reference,
-        identityVerifiedAt: automatedEvidence.identity.verifiedAt,
-        identityVerifiedBy: "AUTOMATED_SYSTEM",
-        policeVerificationLevel: automatedEvidence.policeClearance.level,
-        policeVerificationMethod: automatedEvidence.policeClearance.method,
-        policeVerificationSource: automatedEvidence.policeClearance.source,
-        policeVerificationReference:
-          automatedEvidence.policeClearance.reference,
-        policeVerifiedAt: automatedEvidence.policeClearance.verifiedAt,
-        policeVerifiedBy: "AUTOMATED_SYSTEM",
+        identityVerificationLevel: offlineEvidence.identity.level,
+        identityVerificationMethod: offlineEvidence.identity.method,
+        identityVerificationSource: offlineEvidence.identity.source,
+        identityVerificationReference: offlineEvidence.identity.reference,
+        identityVerifiedAt: offlineEvidence.identity.checkedAt,
+        identityVerifiedBy: "OFFLINE_VALIDATION_SYSTEM",
+        policeVerificationLevel: offlineEvidence.policeClearance.level,
+        policeVerificationMethod: offlineEvidence.policeClearance.method,
+        policeVerificationSource: offlineEvidence.policeClearance.source,
+        policeVerificationReference: offlineEvidence.policeClearance.reference,
+        policeVerifiedAt: offlineEvidence.policeClearance.checkedAt,
+        policeVerifiedBy: "OFFLINE_VALIDATION_SYSTEM",
         verificationStatus: qualificationCheck.recommendedStatus,
         adminNotes: qualificationCheck.adminNotes,
       },
     });
 
-    // Return detailed verification results
     return NextResponse.json(
       {
-        message: qualificationCheck.autoApproved
-          ? "Documents verified automatically."
-          : "National ID and police clearance were verified automatically. Professional credential review remains pending.",
+        message:
+          "Document evidence passed every offline consistency and tamper-evidence rule and was approved automatically. No live government or regulator database lookup was performed.",
         verificationStatus: updatedProfile.verificationStatus,
         qualificationCheck,
         verificationResults: Object.fromEntries(
@@ -162,15 +212,19 @@ export async function POST(request: Request) {
         ),
         providerProfile: updatedProfile,
       },
-      { status: qualificationCheck.autoApproved ? 200 : 207 },
-    ); // 207 for accepted but pending review
+      { status: 200 },
+    );
   } catch (error) {
-    console.error("Document verification error:", error);
+    if (error instanceof RequestInputError) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.status },
+      );
+    }
+
+    console.error("Document validation error:", error);
     return NextResponse.json(
-      {
-        error: "Could not verify documents.",
-        details: error instanceof Error ? error.message : "Unknown error",
-      },
+      { error: "Could not validate documents." },
       { status: 500 },
     );
   }
@@ -181,7 +235,7 @@ export async function GET() {
 
   if (!userId) {
     return NextResponse.json(
-      { error: "You must be signed in to check verification status." },
+      { error: "You must be signed in to check validation status." },
       { status: 401 },
     );
   }
@@ -199,10 +253,12 @@ export async function GET() {
     }
 
     return NextResponse.json({
+      verificationMode: "OFFLINE_EVIDENCE_REVIEW",
+      authenticityEstablished: false,
       verificationStatus: providerProfile.verificationStatus,
       adminNotes: providerProfile.adminNotes,
-      hasDocuments: !!(
-        providerProfile.idNumber && providerProfile.policeClearanceNumber
+      hasDocuments: Boolean(
+        providerProfile.idNumber && providerProfile.policeClearanceNumber,
       ),
       documents: {
         idNumber: providerProfile.idNumber ? "Provided" : "Missing",
@@ -220,17 +276,17 @@ export async function GET() {
           : "Missing",
       },
       evidence: {
-        identity: providerProfile.identityVerificationLevel ?? "Unverified",
+        identity: providerProfile.identityVerificationLevel ?? "Unvalidated",
         policeClearance:
-          providerProfile.policeVerificationLevel ?? "Unverified",
+          providerProfile.policeVerificationLevel ?? "Unvalidated",
         serviceCertification:
-          providerProfile.credentialVerificationLevel ?? "Unverified",
+          providerProfile.credentialVerificationLevel ?? "Unvalidated",
       },
     });
   } catch (error) {
-    console.error("Error fetching verification status:", error);
+    console.error("Error fetching validation status:", error);
     return NextResponse.json(
-      { error: "Could not fetch verification status." },
+      { error: "Could not fetch validation status." },
       { status: 500 },
     );
   }

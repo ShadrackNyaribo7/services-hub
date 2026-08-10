@@ -2,11 +2,24 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@clerk/nextjs/server";
 import {
-  getAutomatedRecordEvidenceSummary,
   getCredentialEvidenceSummary,
-  hasAutomatedVerificationServiceFailure,
+  getOfflineRecordEvidenceSummary,
+  hasOfflineValidationConfigurationFailure,
+  normalizeSupportedServiceCategory,
   runProviderQualificationCheck,
 } from "@/lib/verification/qualificationService";
+import {
+  readBoundedJsonObject,
+  readTextInput,
+  RequestInputError,
+} from "@/lib/verification/requestGuards";
+
+function normalizeKenyanPhone(value: string) {
+  const compact = value.replace(/[\s()-]/g, "");
+  if (/^0[17]\d{8}$/.test(compact)) return `+254${compact.slice(1)}`;
+  if (/^254[17]\d{8}$/.test(compact)) return `+${compact}`;
+  return compact;
+}
 
 export async function POST(request: Request) {
   const { userId } = await auth();
@@ -19,62 +32,87 @@ export async function POST(request: Request) {
   }
 
   try {
-    const body = await request.json();
-
-    const {
-      fullName: rawFullName,
-      phone: rawPhone,
-      county: rawCounty,
-      serviceCategory: rawServiceCategory,
-      policeClearanceNumber,
-      IDnumber,
-      idNumber,
-      certificationNumber,
-      certificationIssuer,
-      certificationName,
-      verificationConsent,
-    } = body;
-    const fullName = String(rawFullName ?? "").trim();
-    const phone = String(rawPhone ?? "").trim();
-    const county = String(rawCounty ?? "").trim();
-    const serviceCategory = String(rawServiceCategory ?? "").trim();
-    const submittedIdNumber = String(IDnumber ?? idNumber ?? "").trim();
-    const submittedPoliceClearanceNumber = String(
-      policeClearanceNumber ?? "",
-    ).trim();
-    const submittedCertificationNumber = String(
-      certificationNumber ?? "",
-    ).trim();
-    const submittedCertificationIssuer = String(
-      certificationIssuer ?? "",
-    ).trim();
-    const submittedCertificationName = String(certificationName ?? "").trim();
+    const body = await readBoundedJsonObject(request);
+    const fullName = readTextInput(body, "fullName", 120);
+    const phone = normalizeKenyanPhone(readTextInput(body, "phone", 24));
+    const county = readTextInput(body, "county", 80);
+    const rawServiceCategory = readTextInput(body, "serviceCategory", 40);
+    const serviceCategory =
+      normalizeSupportedServiceCategory(rawServiceCategory);
+    const submittedIdNumber =
+      readTextInput(body, "IDnumber", 16) ||
+      readTextInput(body, "idNumber", 16);
+    const idNumberConfirmation = readTextInput(
+      body,
+      "idNumberConfirmation",
+      16,
+    );
+    const identityDocumentName = readTextInput(
+      body,
+      "identityDocumentName",
+      120,
+    );
+    const submittedPoliceClearanceNumber = readTextInput(
+      body,
+      "policeClearanceNumber",
+      64,
+    );
+    const policeClearanceNumberConfirmation = readTextInput(
+      body,
+      "policeClearanceNumberConfirmation",
+      64,
+    );
+    const policeClearanceName = readTextInput(body, "policeClearanceName", 120);
+    const submittedCertificationNumber = readTextInput(
+      body,
+      "certificationNumber",
+      64,
+    );
+    const certificationNumberConfirmation = readTextInput(
+      body,
+      "certificationNumberConfirmation",
+      64,
+    );
+    const certificationHolderName = readTextInput(
+      body,
+      "certificationHolderName",
+      120,
+    );
+    const submittedCertificationIssuer = readTextInput(
+      body,
+      "certificationIssuer",
+      160,
+    );
+    const submittedCertificationName = readTextInput(
+      body,
+      "certificationName",
+      160,
+    );
 
     if (!fullName || !phone || !county || !serviceCategory) {
       return NextResponse.json(
-        { error: "Missing required fields." },
-        { status: 400 },
-      );
-    }
-
-    if (verificationConsent !== true) {
-      return NextResponse.json(
         {
           error:
-            "Consent is required to verify identity, police clearance, and professional credentials.",
+            "Valid name, phone, county, and service category are required.",
         },
         { status: 400 },
       );
     }
 
-    const existingPhoneUser = await prisma.user.findUnique({
-      where: { phone },
-    });
-
-    if (existingPhoneUser && existingPhoneUser.id !== userId) {
+    if (!/^\+254[17]\d{8}$/.test(phone)) {
       return NextResponse.json(
-        { error: "That phone number is already used by another account." },
-        { status: 409 },
+        { error: "Enter a valid Kenyan mobile number." },
+        { status: 422 },
+      );
+    }
+
+    if (body.verificationConsent !== true) {
+      return NextResponse.json(
+        {
+          error:
+            "Attestation is required for offline identity, police-clearance, and credential evidence review.",
+        },
+        { status: 400 },
       );
     }
 
@@ -82,8 +120,14 @@ export async function POST(request: Request) {
       fullName,
       serviceCategory,
       idNumber: submittedIdNumber,
+      idNumberConfirmation,
+      identityDocumentName,
       policeClearanceNumber: submittedPoliceClearanceNumber,
+      policeClearanceNumberConfirmation,
+      policeClearanceName,
       certificationNumber: submittedCertificationNumber,
+      certificationNumberConfirmation,
+      certificationHolderName,
       certificationIssuer: submittedCertificationIssuer,
       certificationName: submittedCertificationName,
     });
@@ -96,23 +140,59 @@ export async function POST(request: Request) {
           qualificationCheck,
         },
         {
-          status: hasAutomatedVerificationServiceFailure(qualificationCheck)
+          status: hasOfflineValidationConfigurationFailure(qualificationCheck)
             ? 503
             : 422,
         },
       );
     }
 
+    const existingPhoneUser = await prisma.user.findUnique({
+      where: { phone },
+      select: { id: true },
+    });
+
+    if (existingPhoneUser && existingPhoneUser.id !== userId) {
+      return NextResponse.json(
+        { error: "That phone number is already used by another account." },
+        { status: 409 },
+      );
+    }
+
+    const duplicateDocument = await prisma.providerProfile.findFirst({
+      where: {
+        userId: { not: userId },
+        OR: [
+          { idNumber: submittedIdNumber },
+          { policeClearanceNumber: submittedPoliceClearanceNumber },
+          ...(submittedCertificationNumber
+            ? [{ certificationNumber: submittedCertificationNumber }]
+            : []),
+        ],
+      },
+      select: { id: true },
+    });
+
+    if (duplicateDocument) {
+      return NextResponse.json(
+        {
+          error:
+            "One or more submitted document identifiers are already associated with another provider application.",
+        },
+        { status: 409 },
+      );
+    }
+
     const credentialEvidence = getCredentialEvidenceSummary(qualificationCheck);
-    const automatedEvidence =
-      getAutomatedRecordEvidenceSummary(qualificationCheck);
+    const offlineEvidence = getOfflineRecordEvidenceSummary(qualificationCheck);
 
     if (
-      !automatedEvidence.identity.authoritative ||
-      !automatedEvidence.policeClearance.authoritative
+      !offlineEvidence.identity.sealed ||
+      !offlineEvidence.policeClearance.sealed ||
+      (submittedCertificationNumber && !credentialEvidence.offlineValidated)
     ) {
       return NextResponse.json(
-        { error: "Authoritative automated verification evidence is required." },
+        { error: "Complete sealed offline evidence is required." },
         { status: 503 },
       );
     }
@@ -128,29 +208,27 @@ export async function POST(request: Request) {
       credentialVerificationLevel: credentialEvidence.level,
       credentialVerificationMethod: credentialEvidence.method,
       credentialVerificationSource: credentialEvidence.source,
-      credentialVerifiedAt: credentialEvidence.verifiedAt,
-      credentialManualReference: null,
+      credentialVerifiedAt: null,
+      credentialManualReference: credentialEvidence.reference,
       verificationConsentAt: new Date(),
-      identityVerificationLevel: automatedEvidence.identity.level,
-      identityVerificationMethod: automatedEvidence.identity.method,
-      identityVerificationSource: automatedEvidence.identity.source,
-      identityVerificationReference: automatedEvidence.identity.reference,
-      identityVerifiedAt: automatedEvidence.identity.verifiedAt,
-      identityVerifiedBy: "AUTOMATED_SYSTEM",
-      policeVerificationLevel: automatedEvidence.policeClearance.level,
-      policeVerificationMethod: automatedEvidence.policeClearance.method,
-      policeVerificationSource: automatedEvidence.policeClearance.source,
-      policeVerificationReference: automatedEvidence.policeClearance.reference,
-      policeVerifiedAt: automatedEvidence.policeClearance.verifiedAt,
-      policeVerifiedBy: "AUTOMATED_SYSTEM",
+      identityVerificationLevel: offlineEvidence.identity.level,
+      identityVerificationMethod: offlineEvidence.identity.method,
+      identityVerificationSource: offlineEvidence.identity.source,
+      identityVerificationReference: offlineEvidence.identity.reference,
+      identityVerifiedAt: offlineEvidence.identity.checkedAt,
+      identityVerifiedBy: "OFFLINE_VALIDATION_SYSTEM",
+      policeVerificationLevel: offlineEvidence.policeClearance.level,
+      policeVerificationMethod: offlineEvidence.policeClearance.method,
+      policeVerificationSource: offlineEvidence.policeClearance.source,
+      policeVerificationReference: offlineEvidence.policeClearance.reference,
+      policeVerifiedAt: offlineEvidence.policeClearance.checkedAt,
+      policeVerifiedBy: "OFFLINE_VALIDATION_SYSTEM",
       verificationStatus: qualificationCheck.recommendedStatus,
       adminNotes: qualificationCheck.adminNotes,
     };
 
     const application = await prisma.user.upsert({
-      where: {
-        id: userId,
-      },
+      where: { id: userId },
       update: {
         name: fullName,
         phone,
@@ -167,28 +245,29 @@ export async function POST(request: Request) {
         name: fullName,
         phone,
         role: "PROVIDER",
-        providerProfile: {
-          create: providerProfileData,
-        },
+        providerProfile: { create: providerProfileData },
       },
-      include: {
-        providerProfile: true,
-      },
+      include: { providerProfile: true },
     });
 
     return NextResponse.json(
       {
         application,
         qualificationCheck,
-        message: qualificationCheck.autoApproved
-          ? "Application submitted and all required records were verified automatically."
-          : "National ID and police clearance were verified automatically. Professional credential review remains pending.",
+        message:
+          "Application evidence passed every offline consistency and tamper-evidence rule and was approved automatically. No live government or regulator database lookup was performed.",
       },
       { status: 201 },
     );
   } catch (error) {
-    console.error(error);
+    if (error instanceof RequestInputError) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.status },
+      );
+    }
 
+    console.error("Provider application error:", error);
     return NextResponse.json(
       { error: "Could not submit application." },
       { status: 500 },

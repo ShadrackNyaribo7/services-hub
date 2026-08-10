@@ -1,4 +1,11 @@
 import LegalPage from "@/components/LegalPage";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Refund Policy",
+  description: "PATANAFUU cancellation, dispute, and M-Pesa refund terms.",
+  alternates: { canonical: "/refund" },
+};
 
 export default function RefundPolicy() {
   return (

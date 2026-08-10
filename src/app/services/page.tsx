@@ -7,9 +7,17 @@ import {
 } from "@/lib/location";
 import ServicesLocationFilter from "@/components/ServicesLocationFilter";
 import type { Prisma } from "@prisma/client";
+import type { Metadata } from "next";
 import Link from "next/link";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = {
+  title: "Find Service Providers",
+  description:
+    "Find approved cleaners, electricians, plumbers, and mechanics across Kenya.",
+  alternates: { canonical: "/services" },
+};
 
 type ServicesPageProps = {
   searchParams: Promise<{
@@ -151,7 +159,7 @@ export default async function ServicesPage({
     <main className="min-h-screen bg-gray-950 px-4 py-10 text-slate-50 sm:px-6">
       <section className="relative z-10 mx-auto flex max-w-6xl flex-col justify-center px-4 py-12 sm:px-6">
         <h1 className="text-2xl font-bold text-emerald-400 sm:text-3xl">
-          Find Verified Providers
+          Find Approved Providers
         </h1>
 
         <ServicesLocationFilter

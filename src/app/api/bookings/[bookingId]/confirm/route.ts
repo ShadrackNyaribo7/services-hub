@@ -1,111 +1,196 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { auth } from '@clerk/nextjs/server';
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { auth } from "@clerk/nextjs/server";
+import {
+  readBoundedJsonObject,
+  readTextInput,
+  RequestInputError,
+} from "@/lib/verification/requestGuards";
+import {
+  isLocationFresh,
+  LOCATION_FRESHNESS_LIMIT_MS,
+} from "@/lib/location/providerLocationSecurity";
 
-// POST - Confirm service completion (for escrow release)
 export async function POST(
-  request: NextRequest,
-  { params }: { params: Promise<{ bookingId: string }> }
+  request: Request,
+  { params }: { params: Promise<{ bookingId: string }> },
 ) {
+  const { userId } = await auth();
+  if (!userId) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   try {
-    const { userId } = await auth();
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const { bookingId } = await params;
+    if (!bookingId || bookingId.length > 64) {
+      return NextResponse.json(
+        { error: "Invalid booking ID" },
+        { status: 400 },
+      );
     }
 
-    const { bookingId } = await params;
-    const { role, confirmed } = await request.json();
+    const body = await readBoundedJsonObject(request, 2_048);
+    const role = readTextInput(body, "role", 16);
+    if (
+      (role !== "provider" && role !== "client") ||
+      typeof body.confirmed !== "boolean"
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            'role must be "provider" or "client", and confirmed must be boolean.',
+        },
+        { status: 400 },
+      );
+    }
 
-    // Find the booking
     const booking = await prisma.booking.findUnique({
       where: { id: bookingId },
-      include: { providerProfile: true }
+      select: {
+        id: true,
+        clientUserId: true,
+        paymentStatus: true,
+        status: true,
+        serviceConfirmed: true,
+        clientConfirmed: true,
+        operationStartedAt: true,
+        operationEndedAt: true,
+        providerLocationLastSeenAt: true,
+        providerProfile: { select: { userId: true } },
+      },
+    });
+    if (!booking) {
+      return NextResponse.json({ error: "Booking not found" }, { status: 404 });
+    }
+
+    const ownsRole =
+      role === "client"
+        ? booking.clientUserId === userId
+        : booking.providerProfile.userId === userId;
+    if (!ownsRole) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    if (booking.paymentStatus !== "COMPLETED") {
+      return NextResponse.json(
+        { error: "Payment must be completed before confirmation" },
+        { status: 400 },
+      );
+    }
+
+    const confirmed = body.confirmed;
+    if (role === "provider" && !confirmed && booking.serviceConfirmed) {
+      return NextResponse.json(
+        { error: "A provider-completed operation cannot be reopened." },
+        { status: 409 },
+      );
+    }
+    if (booking.status === "COMPLETED") {
+      const alreadyConfirmed =
+        role === "provider"
+          ? booking.serviceConfirmed === confirmed
+          : booking.clientConfirmed === confirmed;
+      if (!alreadyConfirmed) {
+        return NextResponse.json(
+          { error: "A completed booking cannot be reopened." },
+          { status: 409 },
+        );
+      }
+      return NextResponse.json({
+        success: true,
+        serviceComplete: true,
+        message: "Both parties confirmed service completion.",
+      });
+    }
+
+    if (confirmed && !booking.operationStartedAt) {
+      return NextResponse.json(
+        { error: "The provider must start the tracked operation first." },
+        { status: 409 },
+      );
+    }
+
+    if (
+      role === "provider" &&
+      confirmed &&
+      !booking.serviceConfirmed &&
+      (booking.status !== "IN_PROGRESS" ||
+        !isLocationFresh(booking.providerLocationLastSeenAt))
+    ) {
+      return NextResponse.json(
+        {
+          error: `A live provider location update is required within ${Math.round(LOCATION_FRESHNESS_LIMIT_MS / 1_000)} seconds of completion.`,
+        },
+        { status: 409 },
+      );
+    }
+
+    const confirmationTime = confirmed ? new Date() : null;
+    await prisma.booking.update({
+      where: { id: bookingId },
+      data:
+        role === "provider"
+          ? {
+              serviceConfirmed: confirmed,
+              serviceConfirmedAt: confirmationTime,
+              operationEndedAt: confirmationTime,
+              status: confirmed
+                ? booking.clientConfirmed
+                  ? "COMPLETED"
+                  : "AWAITING_CLIENT_CONFIRMATION"
+                : "IN_PROGRESS",
+            }
+          : {
+              clientConfirmed: confirmed,
+              clientConfirmedAt: confirmationTime,
+            },
     });
 
-    if (!booking) {
-      return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
-    }
-
-    // Security check: Verify payment was made through platform
-    if (booking.paymentStatus !== 'COMPLETED') {
-      return NextResponse.json(
-        { error: 'Payment must be completed before confirmation' },
-        { status: 400 }
-      );
-    }
-
-    // Security check: Prevent double confirmation
-    if (booking.escrowReleased) {
-      return NextResponse.json(
-        { error: 'Escrow already released' },
-        { status: 400 }
-      );
-    }
-
-    // Handle confirmation based on role
-    if (role === 'provider') {
-      // Provider confirms service completion
+    const latest = await prisma.booking.findUnique({
+      where: { id: bookingId },
+      select: {
+        serviceConfirmed: true,
+        clientConfirmed: true,
+        ratingEligibleAt: true,
+      },
+    });
+    const serviceComplete = Boolean(
+      latest?.serviceConfirmed && latest.clientConfirmed,
+    );
+    if (serviceComplete) {
       await prisma.booking.update({
         where: { id: bookingId },
         data: {
-          serviceConfirmed: confirmed,
-          serviceConfirmedAt: confirmed ? new Date() : null,
-        }
+          status: "COMPLETED",
+          operationEndedAt: booking.operationEndedAt ?? new Date(),
+          ratingEligibleAt: latest?.ratingEligibleAt ?? new Date(),
+        },
       });
-
-      // Check if both parties confirmed - release escrow
-      if (confirmed && booking.clientConfirmed) {
-        await releaseEscrow(bookingId);
-      }
-
-    } else if (role === 'client') {
-      // Client confirms service completion
+    } else if (role === "client" && booking.serviceConfirmed) {
       await prisma.booking.update({
         where: { id: bookingId },
-        data: {
-          clientConfirmed: confirmed,
-          clientConfirmedAt: confirmed ? new Date() : null,
-        }
+        data: { status: "AWAITING_CLIENT_CONFIRMATION" },
       });
-
-      // Check if both parties confirmed - release escrow
-      if (confirmed && booking.serviceConfirmed) {
-        await releaseEscrow(bookingId);
-      }
-
-    } else {
-      return NextResponse.json(
-        { error: 'Invalid role. Must be "provider" or "client"' },
-        { status: 400 }
-      );
     }
 
     return NextResponse.json({
       success: true,
-      message: 'Confirmation recorded successfully'
+      serviceComplete,
+      message: serviceComplete
+        ? "Both parties confirmed service completion."
+        : "Confirmation recorded successfully.",
     });
-
   } catch (error) {
-    console.error('Error confirming booking:', error);
+    if (error instanceof RequestInputError) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.status },
+      );
+    }
+    console.error("Error confirming booking:", error);
     return NextResponse.json(
-      { error: 'Failed to confirm booking' },
-      { status: 500 }
+      { error: "Failed to confirm booking" },
+      { status: 500 },
     );
   }
-}
-
-// Helper function to release escrow
-async function releaseEscrow(bookingId: string) {
-  await prisma.booking.update({
-    where: { id: bookingId },
-    data: {
-      escrowReleased: true,
-      status: 'COMPLETED',
-      ratingEligibleAt: new Date() // Mark when rating becomes eligible
-    }
-  });
-
-  console.log(`Escrow released for booking ${bookingId}. Rating now eligible.`);
-  // Here you would integrate with your payment system to actually
-  // transfer the providerAmount to the provider's account
 }

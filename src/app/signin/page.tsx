@@ -1,10 +1,12 @@
-import { SignIn } from "@clerk/nextjs";
+import { ClerkProvider, SignIn } from "@clerk/nextjs";
 import AuthPage from "@/components/AuthPage";
 
 export default function Page() {
   return (
-    <AuthPage>
-      <SignIn />
-    </AuthPage>
+    <ClerkProvider>
+      <AuthPage>
+        <SignIn />
+      </AuthPage>
+    </ClerkProvider>
   );
 }

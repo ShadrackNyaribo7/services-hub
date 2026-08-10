@@ -1,7 +1,7 @@
 {
   "name": "PATANAFUU",
   "short_name": "PATANAFUU",
-  "description": "Your trusted platform for connecting with verified service providers across Kenya",
+  "description": "Find and book approved service providers across Kenya",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#000000",

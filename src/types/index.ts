@@ -15,9 +15,15 @@ export interface VerificationResult {
 
 export interface DocumentVerificationRequest {
   idNumber: string;
+  idNumberConfirmation: string;
+  identityDocumentName: string;
   policeClearanceNumber: string;
+  policeClearanceNumberConfirmation: string;
+  policeClearanceName: string;
   serviceCategory?: string;
   certificationNumber?: string;
+  certificationNumberConfirmation?: string;
+  certificationHolderName?: string;
   certificationIssuer?: string;
   certificationName?: string;
   verificationConsent?: boolean;
@@ -32,6 +38,8 @@ export interface DocumentVerificationResponse {
 }
 
 export interface VerificationStatusResponse {
+  verificationMode?: string;
+  authenticityEstablished?: boolean;
   verificationStatus: string;
   adminNotes?: string;
   hasDocuments: boolean;
@@ -58,7 +66,13 @@ export interface ProviderApplication {
   policeClearanceNumber?: string;
   IDnumber?: string;
   idNumber?: string;
+  idNumberConfirmation?: string;
+  identityDocumentName?: string;
+  policeClearanceNumberConfirmation?: string;
+  policeClearanceName?: string;
   certificationNumber?: string;
+  certificationNumberConfirmation?: string;
+  certificationHolderName?: string;
   certificationIssuer?: string;
   certificationName?: string;
   verificationConsent?: boolean;
@@ -345,7 +359,6 @@ export interface RatingEligibility {
   paymentCompleted: boolean;
   serviceConfirmed: boolean;
   clientConfirmed: boolean;
-  escrowReleased: boolean;
 }
 
 export interface ProviderRanking {

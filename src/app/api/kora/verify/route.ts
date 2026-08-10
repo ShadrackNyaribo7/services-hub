@@ -1,5 +1,5 @@
-// Kora Pay is intentionally disabled. Provider verification now uses the
-// credential-free official verification workflow in /api/documents/verify.
+// Kora Pay is intentionally disabled. Provider onboarding now uses the
+// offline evidence-review workflow in /api/documents/verify.
 export async function POST() {
   return Response.json(
     {

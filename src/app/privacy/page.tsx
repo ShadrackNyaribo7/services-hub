@@ -1,4 +1,11 @@
 import LegalPage from "@/components/LegalPage";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Privacy Policy",
+  description: "How PATANAFUU collects, uses, and protects personal data.",
+  alternates: { canonical: "/privacy" },
+};
 
 export default function PrivacyPolicy() {
   return (
@@ -14,7 +21,12 @@ export default function PrivacyPolicy() {
           <li>Service category and location preferences</li>
           <li>Professional credentials and verification documents</li>
           <li>National ID and Police Clearance Certificate identifiers</li>
-          <li>Consent and audit records for provider verification</li>
+          <li>Consent and audit records for provider evidence review</li>
+          <li>
+            A provider&apos;s precise device location, GPS accuracy, heartbeat
+            times, and continuity or integrity alerts while a paid job is marked
+            in progress
+          </li>
         </ul>
       </section>
 
@@ -25,9 +37,13 @@ export default function PrivacyPolicy() {
         <p>We use the information we collect to:</p>
         <ul className="list-disc ml-6 mt-2">
           <li>Process service bookings and payments</li>
-          <li>Verify service provider credentials</li>
+          <li>Review service provider credential submissions</li>
           <li>Improve our services and user experience</li>
           <li>Communicate with you about your bookings</li>
+          <li>
+            Protect clients and providers, confirm operational continuity, and
+            investigate safety, fraud, or service disputes
+          </li>
         </ul>
       </section>
 
@@ -40,10 +56,43 @@ export default function PrivacyPolicy() {
           information, including:
         </p>
         <ul className="list-disc ml-6 mt-2">
-          <li>Encryption of sensitive data</li>
+          <li>
+            Application-layer authenticated encryption of precise operational
+            coordinates before database storage
+          </li>
           <li>Secure payment processing through M-Pesa</li>
           <li>Access controls and authentication systems</li>
           <li>Regular security assessments</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2 className="text-2xl font-semibold text-white mb-4">
+          Provider Operational Location
+        </h2>
+        <p>
+          Precise location collection starts only after an approved provider
+          explicitly consents and starts a paid operation. It continues through
+          authenticated heartbeats until the provider records completion.
+          Providers must keep the operations screen active because mobile
+          operating systems may suspend browser tracking in the background.
+        </p>
+        <ul className="list-disc ml-6 mt-2">
+          <li>
+            Exact coordinates are not shown in the public provider directory
+          </li>
+          <li>
+            Exact coordinates are available only to authorized security
+            administrators for safety and dispute handling
+          </li>
+          <li>
+            Stale, interrupted, low-accuracy, or physically implausible updates
+            are rejected or recorded as security signals
+          </li>
+          <li>
+            Location records are retained only as needed for safety, fraud,
+            dispute, legal, and regulatory purposes
+          </li>
         </ul>
       </section>
 
@@ -57,9 +106,10 @@ export default function PrivacyPolicy() {
         <ul className="list-disc ml-6 mt-2">
           <li>M-Pesa for payment processing</li>
           <li>Clerk for authentication</li>
-          <li>Unified Fitness Platform for service provider integration</li>
-          <li>Document verification services for provider validation</li>
-          <li>Official eCitizen Digital ID and DCI verification services</li>
+          <li>
+            Offline consistency checks, automatic policy evaluation, and
+            post-approval oversight for provider evidence
+          </li>
         </ul>
       </section>
 

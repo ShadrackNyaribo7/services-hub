@@ -3,6 +3,11 @@ import {
   type VerificationResult,
 } from "./verificationService";
 import { verifyProviderCredential } from "./credentialVerificationService";
+import {
+  normalizeDocumentNumber,
+  OFFLINE_EVIDENCE_LEVEL,
+  OFFLINE_VALIDATION_METHOD,
+} from "./offlineEvidence";
 
 export type VerificationStatusValue =
   | "PENDING"
@@ -14,8 +19,14 @@ export type ProviderQualificationInput = {
   fullName: string;
   serviceCategory: string;
   idNumber?: string | null;
+  idNumberConfirmation?: string | null;
+  identityDocumentName?: string | null;
   policeClearanceNumber?: string | null;
+  policeClearanceNumberConfirmation?: string | null;
+  policeClearanceName?: string | null;
   certificationNumber?: string | null;
+  certificationNumberConfirmation?: string | null;
+  certificationHolderName?: string | null;
   certificationIssuer?: string | null;
   certificationName?: string | null;
 };
@@ -48,32 +59,28 @@ export type CredentialEvidenceSummary = {
   level: string | null;
   method: string | null;
   source: string | null;
-  verifiedAt: Date | null;
-  authoritative: boolean;
+  reference: string | null;
+  checkedAt: Date | null;
+  offlineValidated: boolean;
 };
 
-export type AutomatedRecordEvidence = {
+export type OfflineRecordEvidence = {
   level: string | null;
   method: string | null;
   source: string | null;
   reference: string | null;
-  verifiedAt: Date | null;
-  authoritative: boolean;
+  checkedAt: Date | null;
+  sealed: boolean;
 };
 
-export type AutomatedRecordEvidenceSummary = {
-  identity: AutomatedRecordEvidence;
-  policeClearance: AutomatedRecordEvidence;
+export type OfflineRecordEvidenceSummary = {
+  identity: OfflineRecordEvidence;
+  policeClearance: OfflineRecordEvidence;
 };
 
 type ServiceCertificationRequirement = {
   required: boolean;
   label: string;
-};
-
-const DEFAULT_CERTIFICATION_REQUIREMENT: ServiceCertificationRequirement = {
-  required: false,
-  label: "Service certification",
 };
 
 const SERVICE_CERTIFICATION_REQUIREMENTS: Record<
@@ -88,10 +95,6 @@ const SERVICE_CERTIFICATION_REQUIREMENTS: Record<
     required: true,
     label: "Plumbing license or trade certificate",
   },
-  plumbing: {
-    required: true,
-    label: "Plumbing license or trade certificate",
-  },
   mechanic: {
     required: true,
     label: "Mechanic trade certificate",
@@ -102,36 +105,42 @@ const SERVICE_CERTIFICATION_REQUIREMENTS: Record<
   },
 };
 
+const CANONICAL_SERVICE_CATEGORIES: Record<string, string> = {
+  cleaning: "Cleaning",
+  electrical: "Electrical",
+  mechanic: "Mechanic",
+  plumber: "Plumber",
+  plumbing: "Plumber",
+};
+
 function cleanValue(value?: string | null) {
-  return (value ?? "").trim();
+  return (value ?? "").normalize("NFKC").trim();
 }
 
 function normalizeServiceCategory(serviceCategory: string) {
-  return serviceCategory.trim().toLowerCase();
+  return cleanValue(serviceCategory).toLowerCase();
+}
+
+export function normalizeSupportedServiceCategory(serviceCategory: string) {
+  return (
+    CANONICAL_SERVICE_CATEGORIES[normalizeServiceCategory(serviceCategory)] ??
+    null
+  );
 }
 
 export function getServiceCertificationRequirement(
   serviceCategory: string,
-): ServiceCertificationRequirement {
-  return (
-    SERVICE_CERTIFICATION_REQUIREMENTS[
-      normalizeServiceCategory(serviceCategory)
-    ] ?? DEFAULT_CERTIFICATION_REQUIREMENT
-  );
+): ServiceCertificationRequirement | null {
+  const normalized = normalizeServiceCategory(serviceCategory);
+  return SERVICE_CERTIFICATION_REQUIREMENTS[normalized] ?? null;
 }
 
 function hasPlaceholderValue(value: string) {
   const normalized = value.replace(/[\s\-/._]/g, "").toLowerCase();
 
   return (
-    normalized === "na" ||
-    normalized === "none" ||
-    normalized === "test" ||
-    normalized === "sample" ||
-    normalized === "unknown" ||
-    /^(test|sample|unknown|none|na)\d*$/.test(normalized) ||
-    /^0+$/.test(normalized) ||
-    /^1+$/.test(normalized) ||
+    /^(test|sample|demo|fake|unknown|none|na)\d*$/.test(normalized) ||
+    /^(.)\1{4,}$/.test(normalized) ||
     normalized === "12345" ||
     normalized === "123456" ||
     normalized === "1234567" ||
@@ -157,15 +166,6 @@ export function validateCertificationNumberFormat(certificationNumber: string) {
   return null;
 }
 
-function verificationNeedsManualReview(result: VerificationResult) {
-  return (
-    result.provider === "Basic" ||
-    Boolean(result.details?.requiresManualReview) ||
-    result.reason?.toLowerCase().includes("manual verification") === true ||
-    result.reason?.toLowerCase().includes("not configured") === true
-  );
-}
-
 function fromVerificationResult(
   name: QualificationCheckName,
   label: string,
@@ -175,51 +175,52 @@ function fromVerificationResult(
     name,
     label,
     valid: result.valid,
-    reason:
-      result.reason ?? (result.valid ? "Verified" : "Verification failed"),
-    provider: result.provider ?? "VerificationService",
-    requiresManualReview: result.valid
-      ? verificationNeedsManualReview(result)
-      : false,
+    reason: result.reason ?? (result.valid ? "Validated" : "Validation failed"),
+    provider: result.provider ?? "OfflineEvidenceValidator",
+    requiresManualReview:
+      result.valid && Boolean(result.details?.requiresManualReview),
     details: result.details,
   };
 }
 
-async function verifyServiceCertification({
-  fullName,
-  serviceCategory,
-  certificationNumber,
-  certificationIssuer,
-  certificationName,
-}: {
-  fullName: string;
-  serviceCategory: string;
-  certificationNumber?: string | null;
-  certificationIssuer?: string | null;
-  certificationName?: string | null;
-}): Promise<QualificationCheck> {
-  const requirement = getServiceCertificationRequirement(serviceCategory);
-  const normalizedCertificationNumber = cleanValue(certificationNumber);
-  const normalizedCertificationIssuer = cleanValue(certificationIssuer);
-  const normalizedCertificationName = cleanValue(certificationName);
+async function verifyServiceCertification(
+  input: ProviderQualificationInput,
+): Promise<QualificationCheck> {
+  const requirement = getServiceCertificationRequirement(input.serviceCategory);
 
-  if (!normalizedCertificationNumber) {
+  if (!requirement) {
     return {
       name: "serviceCertification",
-      label: requirement.label,
-      valid: !requirement.required,
-      reason: requirement.required
-        ? `${requirement.label} is required for ${serviceCategory} providers.`
-        : "No service certification required for this category.",
+      label: "Service certification",
+      valid: false,
+      reason: "Unsupported service category.",
       provider: "QualificationRules",
       requiresManualReview: false,
     };
   }
 
-  const formatError = validateCertificationNumberFormat(
-    normalizedCertificationNumber,
+  const certificationNumber = cleanValue(input.certificationNumber);
+  const certificationNumberConfirmation = cleanValue(
+    input.certificationNumberConfirmation,
   );
+  const certificationHolderName = cleanValue(input.certificationHolderName);
+  const certificationIssuer = cleanValue(input.certificationIssuer);
+  const certificationName = cleanValue(input.certificationName);
 
+  if (!certificationNumber) {
+    return {
+      name: "serviceCertification",
+      label: requirement.label,
+      valid: !requirement.required,
+      reason: requirement.required
+        ? `${requirement.label} is required for ${input.serviceCategory} providers.`
+        : "No service certification is required for this category.",
+      provider: "QualificationRules",
+      requiresManualReview: false,
+    };
+  }
+
+  const formatError = validateCertificationNumberFormat(certificationNumber);
   if (formatError) {
     return {
       name: "serviceCertification",
@@ -231,48 +232,59 @@ async function verifyServiceCertification({
     };
   }
 
-  if (!normalizedCertificationIssuer || !normalizedCertificationName) {
-    return {
-      name: "serviceCertification",
-      label: requirement.label,
-      valid: false,
-      reason:
-        "Credential issuer and exact qualification or licence name are required.",
-      provider: "QualificationRules",
-      requiresManualReview: false,
-    };
-  }
-
   if (
-    normalizedCertificationIssuer.length > 160 ||
-    normalizedCertificationName.length > 160
+    !certificationNumberConfirmation ||
+    !certificationHolderName ||
+    !certificationIssuer ||
+    !certificationName
   ) {
     return {
       name: "serviceCertification",
       label: requirement.label,
       valid: false,
       reason:
-        "Credential issuer and qualification name must be 160 characters or fewer.",
+        "Credential number confirmation, printed holder name, issuer, and exact qualification or licence name are required.",
+      provider: "QualificationRules",
+      requiresManualReview: false,
+    };
+  }
+
+  if (
+    normalizeDocumentNumber(certificationNumber) ===
+      normalizeDocumentNumber(cleanValue(input.idNumber)) ||
+    normalizeDocumentNumber(certificationNumber) ===
+      normalizeDocumentNumber(cleanValue(input.policeClearanceNumber))
+  ) {
+    return {
+      name: "serviceCertification",
+      label: requirement.label,
+      valid: false,
+      reason:
+        "Credential number must be distinct from the National ID and police clearance numbers.",
       provider: "QualificationRules",
       requiresManualReview: false,
     };
   }
 
   const credentialEvidence = await verifyProviderCredential({
-    fullName,
-    serviceCategory,
-    certificationNumber: normalizedCertificationNumber,
-    certificationIssuer: normalizedCertificationIssuer,
-    certificationName: normalizedCertificationName,
+    fullName: cleanValue(input.fullName),
+    serviceCategory: input.serviceCategory,
+    certificationNumber,
+    certificationNumberConfirmation,
+    certificationHolderName,
+    certificationIssuer,
+    certificationName,
+    idNumber: cleanValue(input.idNumber),
+    policeClearanceNumber: cleanValue(input.policeClearanceNumber),
   });
 
   return {
     name: "serviceCertification",
     label: requirement.label,
-    valid: credentialEvidence.level !== "REJECTED",
+    valid: credentialEvidence.level === OFFLINE_EVIDENCE_LEVEL,
     reason: credentialEvidence.reason,
     provider: credentialEvidence.source,
-    requiresManualReview: credentialEvidence.level !== "AUTHORITATIVE",
+    requiresManualReview: false,
     details: {
       evidenceLevel: credentialEvidence.level,
       verificationMethod: credentialEvidence.method,
@@ -292,42 +304,17 @@ export async function runProviderQualificationCheck(
   const idNumber = cleanValue(input.idNumber);
   const policeClearanceNumber = cleanValue(input.policeClearanceNumber);
 
-  const missingRequiredFields = [
-    !idNumber ? "ID number is required." : null,
-    !policeClearanceNumber
-      ? "Police clearance certificate number is required."
-      : null,
-  ].filter(Boolean) as string[];
-
-  if (missingRequiredFields.length > 0) {
-    return buildQualificationResult([
-      {
-        name: "identity",
-        label: "National ID",
-        valid: Boolean(idNumber),
-        reason: idNumber ? "Provided." : "ID number is required.",
-        provider: "QualificationRules",
-        requiresManualReview: false,
-      },
-      {
-        name: "policeClearance",
-        label: "Police clearance",
-        valid: Boolean(policeClearanceNumber),
-        reason: policeClearanceNumber
-          ? "Provided."
-          : "Police clearance certificate number is required.",
-        provider: "QualificationRules",
-        requiresManualReview: false,
-      },
-      await verifyServiceCertification(input),
-    ]);
-  }
-
   const [documentVerification, certificationVerification] = await Promise.all([
     verificationService.verifyAllDocuments({
-      fullName: input.fullName,
+      fullName: cleanValue(input.fullName),
+      identityDocumentName: cleanValue(input.identityDocumentName),
       idNumber,
+      idNumberConfirmation: cleanValue(input.idNumberConfirmation),
+      policeClearanceName: cleanValue(input.policeClearanceName),
       policeClearanceNumber,
+      policeClearanceNumberConfirmation: cleanValue(
+        input.policeClearanceNumberConfirmation,
+      ),
     }),
     verifyServiceCertification(input),
   ]);
@@ -345,6 +332,12 @@ export async function runProviderQualificationCheck(
     ),
     certificationVerification,
   ]);
+}
+
+function parseCheckedAt(value: unknown) {
+  if (typeof value !== "string") return null;
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.valueOf()) ? null : parsed;
 }
 
 export function getCredentialEvidenceSummary(
@@ -365,28 +358,31 @@ export function getCredentialEvidenceSummary(
     typeof check?.details?.sourceUrl === "string"
       ? check.details.sourceUrl
       : null;
-  const checkedAt =
-    typeof check?.details?.checkedAt === "string"
-      ? new Date(check.details.checkedAt)
+  const reference =
+    typeof check?.details?.reference === "string"
+      ? check.details.reference
       : null;
-  const verifiedAt =
-    level === "AUTHORITATIVE" && checkedAt && !Number.isNaN(checkedAt.valueOf())
-      ? checkedAt
-      : null;
+  const checkedAt = parseCheckedAt(check?.details?.checkedAt);
+  const offlineValidated =
+    check?.valid === true &&
+    level === OFFLINE_EVIDENCE_LEVEL &&
+    method === OFFLINE_VALIDATION_METHOD &&
+    Boolean(source && reference && checkedAt);
 
   return {
     level,
     method,
     source,
-    verifiedAt,
-    authoritative: level === "AUTHORITATIVE",
+    reference,
+    checkedAt,
+    offlineValidated,
   };
 }
 
-function getAutomatedRecordEvidence(
+function getOfflineRecordEvidence(
   result: ProviderQualificationResult,
   checkName: "identity" | "policeClearance",
-): AutomatedRecordEvidence {
+): OfflineRecordEvidence {
   const check = result.checks.find(
     (qualificationCheck) => qualificationCheck.name === checkName,
   );
@@ -406,47 +402,31 @@ function getAutomatedRecordEvidence(
     typeof check?.details?.reference === "string"
       ? check.details.reference
       : null;
-  const checkedAt =
-    typeof check?.details?.checkedAt === "string"
-      ? new Date(check.details.checkedAt)
-      : null;
-  const authoritative =
+  const checkedAt = parseCheckedAt(check?.details?.checkedAt);
+  const sealed =
     check?.valid === true &&
     check.requiresManualReview === false &&
-    level === "AUTHORITATIVE" &&
-    method === "AUTOMATED_OFFICIAL_API" &&
-    Boolean(source) &&
-    Boolean(reference) &&
-    Boolean(checkedAt && !Number.isNaN(checkedAt.valueOf()));
+    level === OFFLINE_EVIDENCE_LEVEL &&
+    method === OFFLINE_VALIDATION_METHOD &&
+    Boolean(source && reference && checkedAt);
 
-  return {
-    level,
-    method,
-    source,
-    reference,
-    verifiedAt: authoritative ? checkedAt : null,
-    authoritative,
-  };
+  return { level, method, source, reference, checkedAt, sealed };
 }
 
-export function getAutomatedRecordEvidenceSummary(
+export function getOfflineRecordEvidenceSummary(
   result: ProviderQualificationResult,
-): AutomatedRecordEvidenceSummary {
+): OfflineRecordEvidenceSummary {
   return {
-    identity: getAutomatedRecordEvidence(result, "identity"),
-    policeClearance: getAutomatedRecordEvidence(result, "policeClearance"),
+    identity: getOfflineRecordEvidence(result, "identity"),
+    policeClearance: getOfflineRecordEvidence(result, "policeClearance"),
   };
 }
 
-export function hasAutomatedVerificationServiceFailure(
+export function hasOfflineValidationConfigurationFailure(
   result: ProviderQualificationResult,
 ) {
   return result.checks.some(
-    (check) =>
-      (check.name === "identity" || check.name === "policeClearance") &&
-      (check.details?.errorCode === "NOT_CONFIGURED" ||
-        check.details?.errorCode === "UPSTREAM_UNAVAILABLE" ||
-        check.details?.errorCode === "INVALID_EVIDENCE"),
+    (check) => check.details?.errorCode === "EVIDENCE_SEAL_NOT_CONFIGURED",
   );
 }
 
@@ -457,25 +437,17 @@ function buildQualificationResult(
     .filter((check) => !check.valid)
     .map((check) => `${check.label}: ${check.reason}`);
   const accepted = blockingErrors.length === 0;
-  const autoApproved =
-    accepted && checks.every((check) => !check.requiresManualReview);
-  const recommendedStatus: VerificationStatusValue = autoApproved
-    ? "APPROVED"
-    : "PENDING";
   const adminNotes = checks
     .map((check) => {
-      const state = check.valid ? "valid" : "invalid";
-      const review = check.requiresManualReview
-        ? "; manual review required"
-        : "";
-      return `${check.label}: ${state} via ${check.provider}. ${check.reason}${review}`;
+      const state = check.valid ? "accepted" : "rejected";
+      return `${check.label}: ${state} via ${check.provider}. ${check.reason}`;
     })
     .join("\n");
 
   return {
     accepted,
-    autoApproved,
-    recommendedStatus,
+    autoApproved: accepted,
+    recommendedStatus: accepted ? "APPROVED" : "PENDING",
     adminNotes,
     blockingErrors,
     checks,

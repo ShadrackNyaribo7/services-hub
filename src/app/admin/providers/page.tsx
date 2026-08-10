@@ -1,191 +1,34 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import {
-  getAutomatedRecordEvidenceSummary,
-  getCredentialEvidenceSummary,
-  runProviderQualificationCheck,
-} from "@/lib/verification/qualificationService";
-import { currentUser } from "@clerk/nextjs/server";
+import { getAdminIdentity } from "@/lib/auth/adminAccess";
 import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
 async function requireAdmin() {
-  const user = await currentUser();
-  const email = user?.primaryEmailAddress?.emailAddress?.toLowerCase();
-
-  const adminEmails = (process.env.ADMIN_EMAILS ?? "")
-    .split(",")
-    .map((item) => item.trim().toLowerCase())
-    .filter(Boolean);
-
-  if (!email || !adminEmails.includes(email)) {
-    redirect("/");
-  }
-
-  return { email };
+  const admin = await getAdminIdentity();
+  if (!admin) redirect("/");
+  return admin;
 }
 
-async function updateProviderStatus(formData: FormData) {
+async function moderateProvider(formData: FormData) {
   "use server";
   const { email: adminEmail } = await requireAdmin();
-  const id = String(formData.get("id"));
-  const status = String(formData.get("status"));
-  const officialVerificationReference = String(
-    formData.get("officialVerificationReference") ?? "",
-  ).trim();
-  const officialVerificationConfirmed =
-    String(formData.get("officialVerificationConfirmed") ?? "") === "yes";
+  const id = String(formData.get("id") ?? "");
+  const status = String(formData.get("status") ?? "");
 
-  if (status !== "APPROVED" && status !== "REJECTED") {
-    return;
-  }
+  if (!id || (status !== "REJECTED" && status !== "SUSPENDED")) return;
 
-  if (status === "REJECTED") {
-    await prisma.providerProfile.update({
-      where: { id },
-      data: { verificationStatus: status },
-    });
-  }
-
-  if (status === "APPROVED") {
-    const provider = await prisma.providerProfile.findUnique({
-      where: { id },
-      include: { user: true },
-    });
-
-    if (!provider) {
-      return;
-    }
-
-    if (!provider.verificationConsentAt) {
-      await prisma.providerProfile.update({
-        where: { id },
-        data: {
-          verificationStatus: "PENDING",
-          adminNotes:
-            "Approval blocked: the applicant must resubmit and consent to official record verification.",
-        },
-      });
-
-      revalidatePath("/admin/providers");
-      return;
-    }
-
-    const qualificationCheck = await runProviderQualificationCheck({
-      fullName: provider.user.name,
-      serviceCategory: provider.serviceCategory,
-      idNumber: provider.idNumber,
-      policeClearanceNumber: provider.policeClearanceNumber,
-      certificationNumber: provider.certificationNumber,
-      certificationIssuer: provider.certificationIssuer,
-      certificationName: provider.certificationName,
-    });
-
-    if (!qualificationCheck.accepted) {
-      await prisma.providerProfile.update({
-        where: { id },
-        data: {
-          verificationStatus: "PENDING",
-          adminNotes: `Approval blocked:\n${qualificationCheck.adminNotes}`,
-        },
-      });
-
-      revalidatePath("/admin/providers");
-      return;
-    }
-
-    const credentialEvidence = getCredentialEvidenceSummary(qualificationCheck);
-    const automatedEvidence =
-      getAutomatedRecordEvidenceSummary(qualificationCheck);
-    const hasCredential = Boolean(provider.certificationNumber);
-    const hasStoredAuthoritativeEvidence =
-      (provider.credentialVerificationLevel === "AUTHORITATIVE" ||
-        provider.credentialVerificationLevel === "AUTHORITATIVE_MANUAL") &&
-      Boolean(provider.credentialVerifiedAt);
-    const needsOfficialManualEvidence =
-      hasCredential &&
-      !credentialEvidence.authoritative &&
-      !hasStoredAuthoritativeEvidence;
-
-    if (
-      !automatedEvidence.identity.authoritative ||
-      !automatedEvidence.policeClearance.authoritative
-    ) {
-      await prisma.providerProfile.update({
-        where: { id },
-        data: {
-          verificationStatus: "PENDING",
-          adminNotes: `Approval blocked: authoritative automated National ID and DCI evidence is required.\n${qualificationCheck.adminNotes}`,
-        },
-      });
-
-      revalidatePath("/admin/providers");
-      return;
-    }
-
-    if (
-      needsOfficialManualEvidence &&
-      (!officialVerificationConfirmed ||
-        officialVerificationReference.length < 8)
-    ) {
-      await prisma.providerProfile.update({
-        where: { id },
-        data: {
-          verificationStatus: "PENDING",
-          adminNotes: `Approval blocked: confirm the credential with an official source and record its reference.\n${qualificationCheck.adminNotes}`,
-        },
-      });
-
-      revalidatePath("/admin/providers");
-      return;
-    }
-
-    const resolvedCredentialEvidence = credentialEvidence.authoritative
-      ? {
-          credentialVerificationLevel: credentialEvidence.level,
-          credentialVerificationMethod: credentialEvidence.method,
-          credentialVerificationSource: credentialEvidence.source,
-          credentialVerifiedAt: credentialEvidence.verifiedAt,
-          credentialManualReference: null,
-        }
-      : needsOfficialManualEvidence
-        ? {
-            credentialVerificationLevel: "AUTHORITATIVE_MANUAL",
-            credentialVerificationMethod: "ISSUER_OR_REGULATOR_CONFIRMATION",
-            credentialVerificationSource: officialVerificationReference,
-            credentialVerifiedAt: new Date(),
-            credentialManualReference: officialVerificationReference,
-          }
-        : {};
-    const resolvedIdentityEvidence = {
-      identityVerificationLevel: automatedEvidence.identity.level,
-      identityVerificationMethod: automatedEvidence.identity.method,
-      identityVerificationSource: automatedEvidence.identity.source,
-      identityVerificationReference: automatedEvidence.identity.reference,
-      identityVerifiedAt: automatedEvidence.identity.verifiedAt,
-      identityVerifiedBy: "AUTOMATED_SYSTEM",
-    };
-    const resolvedPoliceEvidence = {
-      policeVerificationLevel: automatedEvidence.policeClearance.level,
-      policeVerificationMethod: automatedEvidence.policeClearance.method,
-      policeVerificationSource: automatedEvidence.policeClearance.source,
-      policeVerificationReference: automatedEvidence.policeClearance.reference,
-      policeVerifiedAt: automatedEvidence.policeClearance.verifiedAt,
-      policeVerifiedBy: "AUTOMATED_SYSTEM",
-    };
-
-    await prisma.providerProfile.update({
-      where: { id },
-      data: {
-        verificationStatus: "APPROVED",
-        adminNotes: `Automated identity and police-clearance checks passed. Approval action completed by ${adminEmail}.\n${qualificationCheck.adminNotes}`,
-        ...resolvedIdentityEvidence,
-        ...resolvedPoliceEvidence,
-        ...resolvedCredentialEvidence,
-      },
-    });
-  }
+  await prisma.providerProfile.update({
+    where: { id },
+    data: {
+      verificationStatus: status,
+      adminNotes:
+        status === "SUSPENDED"
+          ? `Provider suspended by ${adminEmail} after post-approval review.`
+          : `Provider rejected by ${adminEmail} after post-submission review.`,
+    },
+  });
 
   revalidatePath("/admin/providers");
 }
@@ -193,18 +36,19 @@ async function updateProviderStatus(formData: FormData) {
 export default async function AdminProvidersPage() {
   await requireAdmin();
   const providers = await prisma.providerProfile.findMany({
-    include: {
-      user: true,
-    },
-    orderBy: {
-      createdAt: "desc",
-    },
+    include: { user: true },
+    orderBy: { createdAt: "desc" },
   });
 
   return (
     <main className="min-h-screen bg-slate-50 px-6 py-10 text-slate-950">
       <section className="relative z-10 mx-auto max-w-5xl">
-        <h1 className="text-3xl font-bold">Provider Applications</h1>
+        <h1 className="text-3xl font-bold">Provider Oversight</h1>
+        <div className="mt-4 rounded-md border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950">
+          Production onboarding is automatic when every offline rule and
+          evidence seal passes. This page is not an approval gate. Offline
+          checks do not authenticate documents against their issuers.
+        </div>
 
         <div className="mt-8 space-y-4">
           {providers.map((provider) => (
@@ -216,26 +60,25 @@ export default async function AdminProvidersPage() {
               <p>Status: {provider.verificationStatus}</p>
               <p>ID: {provider.idNumber ?? "Missing"}</p>
               <p>
-                Police clearance application:{" "}
+                Police clearance number:{" "}
                 {provider.policeClearanceNumber ?? "Missing"}
               </p>
               <p>
                 Identity evidence:{" "}
-                {provider.identityVerificationLevel ?? "Unverified"}
+                {provider.identityVerificationLevel ?? "Unvalidated"}
               </p>
               {provider.identityVerificationReference && (
-                <p>
-                  Identity audit reference:{" "}
-                  {provider.identityVerificationReference}
+                <p className="break-all text-xs text-slate-600">
+                  Identity seal: {provider.identityVerificationReference}
                 </p>
               )}
               <p>
-                Police clearance evidence:{" "}
-                {provider.policeVerificationLevel ?? "Unverified"}
+                Police evidence:{" "}
+                {provider.policeVerificationLevel ?? "Unvalidated"}
               </p>
               {provider.policeVerificationReference && (
-                <p>
-                  DCI audit reference: {provider.policeVerificationReference}
+                <p className="break-all text-xs text-slate-600">
+                  Police seal: {provider.policeVerificationReference}
                 </p>
               )}
               <p>
@@ -245,17 +88,19 @@ export default async function AdminProvidersPage() {
               {provider.certificationNumber && (
                 <>
                   <p>Credential number: {provider.certificationNumber}</p>
-                  <p>Issuer: {provider.certificationIssuer ?? "Missing"}</p>
+                  <p>
+                    Issuer claim: {provider.certificationIssuer ?? "Missing"}
+                  </p>
                   <p>
                     Qualification: {provider.certificationName ?? "Missing"}
                   </p>
                   <p>
                     Credential evidence:{" "}
-                    {provider.credentialVerificationLevel ?? "Unverified"}
+                    {provider.credentialVerificationLevel ?? "Unvalidated"}
                   </p>
-                  {provider.credentialVerificationSource && (
-                    <p className="break-all text-sm">
-                      Evidence source: {provider.credentialVerificationSource}
+                  {provider.credentialManualReference && (
+                    <p className="break-all text-xs text-slate-600">
+                      Credential seal: {provider.credentialManualReference}
                     </p>
                   )}
                 </>
@@ -266,50 +111,23 @@ export default async function AdminProvidersPage() {
                 </pre>
               )}
 
-              <div className="mt-4 flex gap-3">
-                <form action={updateProviderStatus}>
-                  <input type="hidden" name="id" value={provider.id} />
-                  <input type="hidden" name="status" value="APPROVED" />
-                  {provider.certificationNumber &&
-                    provider.credentialVerificationLevel !== "AUTHORITATIVE" &&
-                    provider.credentialVerificationLevel !==
-                      "AUTHORITATIVE_MANUAL" && (
-                      <div className="mb-3 max-w-md space-y-2">
-                        <label className="block text-sm font-medium">
-                          Official verification reference
-                          <input
-                            name="officialVerificationReference"
-                            required
-                            minLength={8}
-                            className="mt-1 min-h-[44px] w-full rounded-md border px-3 py-2"
-                          />
-                        </label>
-                        <label className="flex items-start gap-2 text-sm">
-                          <input
-                            type="checkbox"
-                            name="officialVerificationConfirmed"
-                            value="yes"
-                            required
-                            className="mt-1 size-4"
-                          />
-                          I confirmed the credential holder with the regulator
-                          or issuing institution.
-                        </label>
-                      </div>
-                    )}
-                  <button className="rounded-md bg-emerald-700 px-4 py-2 font-semibold text-white">
-                    Run automated verification
-                  </button>
-                </form>
-
-                <form action={updateProviderStatus}>
-                  <input type="hidden" name="id" value={provider.id} />
-                  <input type="hidden" name="status" value="REJECTED" />
-                  <button className="rounded-md bg-red-700 px-4 py-2 font-semibold text-white">
-                    Reject
-                  </button>
-                </form>
-              </div>
+              <form action={moderateProvider} className="mt-4">
+                <input type="hidden" name="id" value={provider.id} />
+                <input
+                  type="hidden"
+                  name="status"
+                  value={
+                    provider.verificationStatus === "APPROVED"
+                      ? "SUSPENDED"
+                      : "REJECTED"
+                  }
+                />
+                <button className="rounded-md bg-red-700 px-4 py-2 font-semibold text-white">
+                  {provider.verificationStatus === "APPROVED"
+                    ? "Suspend provider"
+                    : "Reject submission"}
+                </button>
+              </form>
             </div>
           ))}
         </div>

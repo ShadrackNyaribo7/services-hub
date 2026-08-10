@@ -1,218 +1,281 @@
 import { NextResponse } from "next/server";
+import { mpesaService } from "@/lib/mpesa/mpesaService";
 import { prisma } from "@/lib/prisma";
-import { MpesaCallbackRequest } from "@/types";
 import {
   calculateMarketplaceProfit,
   isExactPaymentAmount,
 } from "@/lib/pricing/profitEngine";
+import {
+  readBoundedJsonObject,
+  RequestInputError,
+} from "@/lib/verification/requestGuards";
+
+type CallbackItem = { Name?: unknown; Value?: unknown };
+
+function callbackText(value: unknown, name: string, maximumLength = 160) {
+  if (typeof value !== "string") {
+    throw new RequestInputError(`${name} must be a string.`);
+  }
+  const normalized = value.normalize("NFKC").trim();
+  if (!normalized || normalized.length > maximumLength) {
+    throw new RequestInputError(`${name} is invalid.`);
+  }
+  return normalized;
+}
+
+function readCallbackMetadata(items: unknown) {
+  if (!Array.isArray(items) || items.length > 20) {
+    throw new RequestInputError("Successful callbacks require valid metadata.");
+  }
+
+  const metadata = new Map<string, unknown>();
+  for (const rawItem of items) {
+    if (!rawItem || typeof rawItem !== "object" || Array.isArray(rawItem)) {
+      throw new RequestInputError(
+        "Callback metadata contains an invalid item.",
+      );
+    }
+    const item = rawItem as CallbackItem;
+    const name = callbackText(item.Name, "Callback metadata name", 64);
+    if (metadata.has(name)) {
+      throw new RequestInputError(`Callback metadata repeats ${name}.`);
+    }
+    metadata.set(name, item.Value);
+  }
+
+  return metadata;
+}
+
+function invalidCallback(message: string, status = 400) {
+  return NextResponse.json({ ResultCode: 1, ResultDesc: message }, { status });
+}
 
 export async function POST(request: Request) {
   try {
-    const body: MpesaCallbackRequest = await request.json();
-    const callback = body?.Body?.stkCallback;
-
-    if (
-      !callback ||
-      !callback.MerchantRequestID ||
-      !callback.CheckoutRequestID ||
-      callback.ResultCode === undefined
-    ) {
-      return NextResponse.json(
-        { ResultCode: 1, ResultDesc: "Invalid callback payload" },
-        { status: 400 },
-      );
+    const body = await readBoundedJsonObject(request, 32_768);
+    const rawBody = body.Body;
+    if (!rawBody || typeof rawBody !== "object" || Array.isArray(rawBody)) {
+      return invalidCallback("Invalid callback payload");
     }
 
-    const {
-      MerchantRequestID,
-      CheckoutRequestID,
-      ResultCode,
-      ResultDesc,
-      CallbackMetadata,
-    } = callback;
-    const normalizedResultCode = Number(ResultCode);
-
-    if (!Number.isInteger(normalizedResultCode)) {
-      return NextResponse.json(
-        { ResultCode: 1, ResultDesc: "Invalid callback result code" },
-        { status: 400 },
-      );
+    const callback = (rawBody as Record<string, unknown>).stkCallback;
+    if (!callback || typeof callback !== "object" || Array.isArray(callback)) {
+      return invalidCallback("Invalid callback payload");
     }
 
-    console.log('MPesa Callback received:', {
-      MerchantRequestID,
-      CheckoutRequestID,
-      ResultCode: normalizedResultCode,
-      ResultDesc,
-    });
-
-    let metadataBookingId = '';
-    let mpesaReceiptNumber = '';
-    let mpesaTransactionId = '';
-    let paymentAmount = 0;
-    let phoneNumber = '';
-
-    if (CallbackMetadata && CallbackMetadata.Item) {
-      for (const item of CallbackMetadata.Item) {
-        if (item.Name === 'AccountReference') {
-          const accountRef = String(item.Value);
-          metadataBookingId = accountRef.replace('BOOKING-', '');
-        } else if (item.Name === 'MpesaReceiptNumber') {
-          mpesaReceiptNumber = String(item.Value);
-        } else if (item.Name === 'TransactionID') {
-          mpesaTransactionId = String(item.Value);
-        } else if (item.Name === 'Amount') {
-          paymentAmount = Number(item.Value);
-        } else if (item.Name === 'PhoneNumber') {
-          phoneNumber = String(item.Value);
-        }
-      }
+    const values = callback as Record<string, unknown>;
+    const merchantRequestId = callbackText(
+      values.MerchantRequestID,
+      "MerchantRequestID",
+      128,
+    );
+    const checkoutRequestId = callbackText(
+      values.CheckoutRequestID,
+      "CheckoutRequestID",
+      128,
+    );
+    const resultCode = Number(values.ResultCode);
+    if (!Number.isInteger(resultCode)) {
+      return invalidCallback("Invalid callback result code");
     }
+    const resultDescription =
+      typeof values.ResultDesc === "string"
+        ? values.ResultDesc.normalize("NFKC").trim().slice(0, 500)
+        : "";
 
     const existingBooking = await prisma.booking.findUnique({
-      where: {
-        mpesaCheckoutRequestId: CheckoutRequestID,
-      },
+      where: { mpesaCheckoutRequestId: checkoutRequestId },
       include: {
-        providerProfile: {
-          select: {
-            serviceCategory: true,
-          },
-        },
+        providerProfile: { select: { serviceCategory: true } },
       },
     });
 
     if (!existingBooking) {
-      console.error('Could not find booking for callback:', callback);
-      return NextResponse.json(
-        { ResultCode: 1, ResultDesc: 'Booking not found' },
-        { status: 404 }
-      );
+      return invalidCallback("Booking not found", 404);
     }
 
-    if (metadataBookingId && metadataBookingId !== existingBooking.id) {
-      console.error("Callback account reference does not match checkout request");
-      return NextResponse.json(
-        { ResultCode: 1, ResultDesc: "Callback reference mismatch" },
-        { status: 400 },
-      );
+    if (
+      !existingBooking.mpesaMerchantRequestId ||
+      existingBooking.mpesaMerchantRequestId !== merchantRequestId
+    ) {
+      return invalidCallback("Callback merchant reference mismatch");
     }
 
-    const bookingId = existingBooking.id;
+    const callbackSucceeded = resultCode === 0;
+    let paymentAmount = 0;
+    let receiptNumber = "";
+    let transactionId = "";
+    let phoneNumber = "";
+    let accountReference = "";
 
-    if (existingBooking.paymentStatus === "COMPLETED") {
+    if (callbackSucceeded) {
+      const metadata = readCallbackMetadata(
+        (values.CallbackMetadata as Record<string, unknown> | undefined)?.Item,
+      );
+      paymentAmount = Number(metadata.get("Amount"));
+      receiptNumber = callbackText(
+        metadata.get("MpesaReceiptNumber"),
+        "MpesaReceiptNumber",
+        32,
+      ).toUpperCase();
+      phoneNumber = mpesaService.formatPhoneNumber(
+        callbackText(metadata.get("PhoneNumber"), "PhoneNumber", 24),
+      );
+      const rawTransactionId = metadata.get("TransactionID");
+      transactionId =
+        typeof rawTransactionId === "string" && rawTransactionId.trim()
+          ? callbackText(rawTransactionId, "TransactionID", 64)
+          : receiptNumber;
+      const rawAccountReference = metadata.get("AccountReference");
+      accountReference =
+        typeof rawAccountReference === "string" && rawAccountReference.trim()
+          ? callbackText(rawAccountReference, "AccountReference", 12)
+          : "";
+
+      if (!Number.isInteger(paymentAmount) || paymentAmount <= 0) {
+        return invalidCallback("Invalid callback payment amount");
+      }
+      if (!/^[A-Z0-9]{8,32}$/.test(receiptNumber)) {
+        return invalidCallback("Invalid M-Pesa receipt number");
+      }
+      if (!mpesaService.validatePhoneNumber(phoneNumber)) {
+        return invalidCallback("Invalid callback phone number");
+      }
+      if (!isExactPaymentAmount(existingBooking.amount, paymentAmount)) {
+        await prisma.booking.update({
+          where: { id: existingBooking.id },
+          data: {
+            paymentStatus: "FAILED",
+            suspiciousActivity: true,
+            securityFlag: "PAYMENT_AMOUNT_MISMATCH",
+            paymentCreatedAt: new Date(),
+          },
+        });
+        return invalidCallback("Payment amount mismatch");
+      }
+      if (
+        !existingBooking.mpesaPhoneNumber ||
+        mpesaService.formatPhoneNumber(existingBooking.mpesaPhoneNumber) !==
+          phoneNumber
+      ) {
+        return invalidCallback("Callback phone number mismatch");
+      }
+      if (
+        accountReference &&
+        accountReference !== existingBooking.mpesaAccountReference
+      ) {
+        return invalidCallback("Callback account reference mismatch");
+      }
+      if (
+        existingBooking.paymentStatus === "COMPLETED" &&
+        existingBooking.mpesaReceiptNumber === receiptNumber
+      ) {
+        return NextResponse.json({
+          ResultCode: 0,
+          ResultDesc: "Payment already processed",
+        });
+      }
+      if (existingBooking.paymentStatus === "COMPLETED") {
+        return invalidCallback("Completed payment reference mismatch");
+      }
+
+      const duplicateReceipt = await prisma.booking.findFirst({
+        where: {
+          mpesaReceiptNumber: receiptNumber,
+          id: { not: existingBooking.id },
+        },
+        select: { id: true },
+      });
+      if (duplicateReceipt) {
+        return invalidCallback("M-Pesa receipt has already been used");
+      }
+    } else if (existingBooking.paymentStatus === "COMPLETED") {
       return NextResponse.json({
         ResultCode: 0,
         ResultDesc: "Payment already processed",
       });
     }
 
-    const callbackSucceeded = normalizedResultCode === 0;
-    const paymentMatchesBooking =
-      callbackSucceeded &&
-      isExactPaymentAmount(existingBooking.amount, paymentAmount);
-    const paymentStatus =
-      callbackSucceeded && paymentMatchesBooking ? 'COMPLETED' : 'FAILED';
-    const profit =
-      paymentStatus === "COMPLETED"
-        ? calculateMarketplaceProfit({
-            amount: paymentAmount,
-            serviceCategory: existingBooking.providerProfile.serviceCategory,
-          })
-        : null;
+    const profit = callbackSucceeded
+      ? calculateMarketplaceProfit({
+          amount: paymentAmount,
+          serviceCategory: existingBooking.providerProfile.serviceCategory,
+        })
+      : null;
+    const recentBookings = callbackSucceeded
+      ? await prisma.booking.findMany({
+          where: {
+            OR: [
+              { mpesaPhoneNumber: phoneNumber },
+              { providerProfileId: existingBooking.providerProfileId },
+            ],
+            createdAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) },
+          },
+          select: { id: true },
+          take: 7,
+        })
+      : [];
+    const highFrequencyRisk = recentBookings.length > 5;
 
-    // Security measures to prevent payment undercutting
-    // Check for suspicious payment patterns
-    let suspiciousActivity = false;
-    let securityFlag: string | null = null;
-
-    // Flag 1: Payment amount significantly different from expected patterns
-    if (callbackSucceeded && !paymentMatchesBooking) {
-      suspiciousActivity = true;
-      securityFlag = 'PAYMENT_AMOUNT_MISMATCH';
-    } else if (callbackSucceeded && paymentAmount < 500) {
-      suspiciousActivity = true;
-      securityFlag = 'LOW_AMOUNT_RISK';
-    }
-
-    const recentBookings =
-      callbackSucceeded && paymentMatchesBooking
-        ? await prisma.booking.findMany({
-            where: {
-              OR: [
-                ...(phoneNumber ? [{ clientPhone: phoneNumber }] : []),
-                ...(existingBooking.providerProfileId
-                  ? [{ providerProfileId: existingBooking.providerProfileId }]
-                  : []),
-              ],
-              createdAt: {
-                gte: new Date(Date.now() - 24 * 60 * 60 * 1000),
-              },
-            },
-          })
-        : [];
-
-    if (recentBookings.length > 5) {
-      suspiciousActivity = true;
-      securityFlag = 'HIGH_FREQUENCY_RISK';
-    }
-
-    // Update booking with security measures and escrow system
-    await prisma.booking.update({
-      where: { id: bookingId },
+    const update = await prisma.booking.updateMany({
+      where: {
+        id: existingBooking.id,
+        mpesaCheckoutRequestId: checkoutRequestId,
+        mpesaMerchantRequestId: merchantRequestId,
+        paymentStatus: { not: "COMPLETED" },
+      },
       data: {
-        paymentStatus: paymentStatus,
-        mpesaTransactionId: mpesaTransactionId || undefined,
-        mpesaReceiptNumber: mpesaReceiptNumber || undefined,
+        paymentStatus: callbackSucceeded ? "COMPLETED" : "FAILED",
+        mpesaTransactionId: callbackSucceeded ? transactionId : undefined,
+        mpesaReceiptNumber: callbackSucceeded ? receiptNumber : undefined,
         paymentCreatedAt: new Date(),
-        amount: paymentAmount > 0 && paymentMatchesBooking ? paymentAmount : undefined,
-        developerFee: profit ? profit.developerFee : undefined,
-        providerAmount: profit ? profit.providerAmount : undefined,
-        commissionRate: profit ? profit.commissionRate : undefined,
-        grossPlatformFee: profit ? profit.grossPlatformFee : undefined,
-        paymentProcessingFee: profit ? profit.paymentProcessingFee : undefined,
-        status: paymentStatus === 'COMPLETED' ? 'ACCEPTED' : 'REQUESTED',
-        // Security measures
-        suspiciousActivity: suspiciousActivity,
-        securityFlag: securityFlag,
-        // Escrow system: funds held until service completion
-        escrowReleased: false, // Will be released after service confirmation
+        amount: callbackSucceeded ? paymentAmount : undefined,
+        developerFee: profit?.developerFee,
+        providerAmount: profit?.providerAmount,
+        commissionRate: profit?.commissionRate,
+        grossPlatformFee: profit?.grossPlatformFee,
+        paymentProcessingFee: profit?.paymentProcessingFee,
+        status: callbackSucceeded ? "ACCEPTED" : "REQUESTED",
+        suspiciousActivity: highFrequencyRisk,
+        securityFlag: highFrequencyRisk ? "HIGH_FREQUENCY_RISK" : null,
+        escrowReleased: false,
       },
     });
 
-    console.log(`Booking ${bookingId} payment updated to ${paymentStatus}`, {
-      totalAmount: paymentAmount,
-      developerFee: profit?.developerFee ?? 0,
-      providerAmount: profit?.providerAmount ?? 0,
-      grossPlatformFee: profit?.grossPlatformFee ?? 0,
-      paymentProcessingFee: profit?.paymentProcessingFee ?? 0,
-      securityFlags: {
-        suspiciousActivity,
-        securityFlag,
-        escrowReleased: false
-      }
-    });
-
-    // Additional security: Log if suspicious activity detected
-    if (suspiciousActivity) {
-      console.warn(`Security alert: suspicious activity detected for booking ${bookingId}`, {
-        flag: securityFlag,
-        amount: paymentAmount,
-        recentBookingsCount: recentBookings.length
+    if (update.count !== 1) {
+      const latest = await prisma.booking.findUnique({
+        where: { id: existingBooking.id },
+        select: { paymentStatus: true, mpesaReceiptNumber: true },
       });
+      if (
+        latest?.paymentStatus === "COMPLETED" &&
+        latest.mpesaReceiptNumber === receiptNumber
+      ) {
+        return NextResponse.json({
+          ResultCode: 0,
+          ResultDesc: "Payment already processed",
+        });
+      }
+      return invalidCallback("Payment state changed during processing", 409);
     }
 
-    // Return success response to MPesa
-    return NextResponse.json({
-      ResultCode: 0,
-      ResultDesc: 'Payment processed successfully',
+    console.info("M-Pesa callback processed", {
+      bookingId: existingBooking.id,
+      checkoutRequestId,
+      resultCode,
+      resultDescription,
+      suspiciousActivity: highFrequencyRisk,
     });
 
+    return NextResponse.json({
+      ResultCode: 0,
+      ResultDesc: "Payment callback processed",
+    });
   } catch (error) {
-    console.error('MPesa callback error:', error);
-    return NextResponse.json(
-      { ResultCode: 1, ResultDesc: 'Error processing callback' },
-      { status: 500 }
-    );
+    if (error instanceof RequestInputError) {
+      return invalidCallback(error.message, error.status);
+    }
+    console.error("M-Pesa callback error:", error);
+    return invalidCallback("Error processing callback", 500);
   }
 }
