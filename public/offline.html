@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#10b981" />
+    <title>Offline | PATANAFUU</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        font-family: Arial, Helvetica, sans-serif;
+      }
+
+      body {
+        align-items: center;
+        background: #0f172a;
+        color: #f8fafc;
+        display: flex;
+        justify-content: center;
+        margin: 0;
+        min-height: 100vh;
+        padding: 1.5rem;
+      }
+
+      main {
+        background: #111827;
+        border: 1px solid #334155;
+        border-radius: 0.75rem;
+        box-shadow: 0 1rem 2rem rgb(0 0 0 / 25%);
+        max-width: 34rem;
+        padding: 2rem;
+        text-align: center;
+      }
+
+      h1 {
+        font-size: clamp(1.75rem, 6vw, 2.5rem);
+        margin: 0 0 1rem;
+      }
+
+      p {
+        color: #cbd5e1;
+        line-height: 1.6;
+        margin: 0 0 1.5rem;
+      }
+
+      .retry-link {
+        background: #047857;
+        border-radius: 0.5rem;
+        color: white;
+        cursor: pointer;
+        display: inline-flex;
+        font-weight: 700;
+        justify-content: center;
+        min-height: 44px;
+        padding: 0.75rem 1.25rem;
+        text-decoration: none;
+        box-sizing: border-box;
+      }
+
+      .retry-link:hover {
+        background: #065f46;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>You’re offline</h1>
+      <p>
+        PATANAFUU needs a connection to load live services, bookings, location,
+        and payments. Reconnect, then try again.
+      </p>
+      <a class="retry-link" href="/">Try again</a>
+    </main>
+  </body>
+</html>

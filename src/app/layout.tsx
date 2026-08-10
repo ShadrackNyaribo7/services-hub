@@ -4,7 +4,9 @@ import Link from "next/link";
 import BrandLogo from "@/components/BrandLogo";
 import OfflineBanner from "@/components/OfflineBanner";
 import MobileNav from "@/components/MobileNav";
+import PageAnimations from "@/components/PageAnimations";
 import PWAInstallButton from "@/components/PWAInstallButton";
+import PWARegistration from "@/components/PWARegistration";
 import { FOOTER_NAV_ITEMS, LEGAL_NAV_ITEMS } from "@/lib/navigation";
 import "./globals.css";
 
@@ -94,6 +96,8 @@ export default function RootLayout({
         <link rel="apple-touch-icon" href="/icon-192x192.png" />
       </head>
       <body className="min-h-full flex flex-col">
+        <PWARegistration />
+        <PageAnimations />
         <OfflineBanner />
         <header className="relative z-10 bg-gray-900 border-b border-gray-800">
           <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-y-3 px-4 py-4 sm:px-6">
