@@ -1,15 +1,8 @@
 "use client";
 
 import LottieAnimation from "@/app/component/lottie";
-import { usePathname } from "next/navigation";
 
 export default function PageAnimations() {
-  const pathname = usePathname();
-
-  if (pathname?.startsWith("/services/ufp")) {
-    return null;
-  }
-
   return (
     <div aria-hidden="true" className="site-animation-layer">
       <video
