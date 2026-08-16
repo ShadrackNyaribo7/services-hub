@@ -77,6 +77,7 @@ const ISSUER_ALIASES: Record<string, string> = {
   knec: "Kenya National Examinations Council",
   nca: "National Construction Authority",
   nita: "National Industrial Training Authority",
+  ntsa: "National Transport and Safety Authority",
   tveta: "Technical and Vocational Education and Training Authority",
   "tvet cdacc":
     "TVET Curriculum Development Assessment and Certification Council",
@@ -158,6 +159,42 @@ function categoryQualificationMatches(category: string, name: string) {
   if (category === "mechanic") {
     return /\b(mechanic\w*|automotive|motor vehicle|vehicle maintenance)\b/.test(
       normalized,
+    );
+  }
+
+  if (category === "carpenter") {
+    return /\b(carpent\w*|joiner\w*|woodwork\w*)\b/.test(normalized);
+  }
+
+  if (category === "driver") {
+    return /\b(driv\w*|commercial vehicle operator)\b/.test(normalized);
+  }
+
+  if (category === "mason") {
+    return /\b(mason\w*|bricklay\w*|stonework\w*)\b/.test(normalized);
+  }
+
+  if (category === "glazier") {
+    return /\b(glaz\w*|glass (?:installation|fitting|work))\b/.test(normalized);
+  }
+
+  if (category === "gardener") {
+    return /\b(garden\w*|horticultur\w*|landscap\w*)\b/.test(normalized);
+  }
+
+  if (category === "interior decorator") {
+    return /\binterior (?:decor\w*|design\w*)\b/.test(normalized);
+  }
+
+  if (category === "painter") {
+    return /\b(paint\w*|decorat\w*)\b/.test(normalized);
+  }
+
+  if (category === "internet service installer") {
+    return (
+      /\b(internet|network\w*|telecommunications?|fib(?:er|re) optic|ict)\b/.test(
+        normalized,
+      ) && /\b(install\w*|technician|cabl\w*|network\w*)\b/.test(normalized)
     );
   }
 

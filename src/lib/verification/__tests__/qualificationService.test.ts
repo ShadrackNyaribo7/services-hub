@@ -45,6 +45,11 @@ describe("offline provider qualification enforcement", () => {
 
   it("canonicalizes only supported service categories", () => {
     expect(normalizeSupportedServiceCategory(" plumbing ")).toBe("Plumber");
+    expect(normalizeSupportedServiceCategory("carpentry")).toBe("Carpenter");
+    expect(normalizeSupportedServiceCategory("gardners")).toBe("Gardener");
+    expect(
+      normalizeSupportedServiceCategory("internet service installers"),
+    ).toBe("Internet Service Installer");
     expect(normalizeSupportedServiceCategory("Unlisted Trade")).toBeNull();
   });
 
@@ -73,6 +78,34 @@ describe("offline provider qualification enforcement", () => {
     expect(credential.offlineValidated).toBe(true);
     expect(credential.reference).toMatch(/^OEV1-CREDENTIAL-/);
   });
+
+  it.each([
+    ["Carpenter", "Carpentry and Joinery Grade I", "NITA"],
+    ["Driver", "Commercial Driving Licence", "NTSA"],
+    ["Mason", "Masonry Trade Test Grade I", "NITA"],
+    ["Glazier", "Glass and Glazing Trade Certificate", "NITA"],
+    ["Gardener", "Horticulture and Landscaping Certificate", "NITA"],
+    ["Interior Decorator", "Interior Decoration Certificate", "NITA"],
+    ["Painter", "Painting and Decorating Grade I", "NITA"],
+    [
+      "Internet Service Installer",
+      "Fiber Optic Installation Technician",
+      "NITA",
+    ],
+  ])(
+    "automatically approves valid %s credential evidence",
+    async (serviceCategory, certificationName, certificationIssuer) => {
+      const result = await runProviderQualificationCheck({
+        ...baseInput,
+        serviceCategory,
+        certificationName,
+        certificationIssuer,
+      });
+
+      expect(result.accepted).toBe(true);
+      expect(result.recommendedStatus).toBe("APPROVED");
+    },
+  );
 
   it("blocks a mismatched credential holder", async () => {
     const result = await runProviderQualificationCheck({

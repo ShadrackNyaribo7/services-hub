@@ -239,6 +239,16 @@ function ProviderApplicationForm() {
               <option value="Electrical">Electrical</option>
               <option value="Plumber">Plumber</option>
               <option value="Mechanic">Mechanic</option>
+              <option value="Carpenter">Carpenter</option>
+              <option value="Driver">Driver</option>
+              <option value="Mason">Mason</option>
+              <option value="Glazier">Glazier</option>
+              <option value="Gardener">Gardener</option>
+              <option value="Interior Decorator">Interior Decorator</option>
+              <option value="Painter">Painter</option>
+              <option value="Internet Service Installer">
+                Internet Service Installer
+              </option>
             </select>
           </label>
 
@@ -394,6 +404,7 @@ function ProviderApplicationForm() {
               <option value="Kenya National Examinations Council" />
               <option value="TVET Curriculum Development Assessment and Certification Council" />
               <option value="National Construction Authority" />
+              <option value="National Transport and Safety Authority" />
             </datalist>
           </label>
 
@@ -426,8 +437,7 @@ function ProviderApplicationForm() {
               I attest that every identifier and printed name above exactly
               matches the original document. I consent to secure storage,
               offline consistency checks, tamper-evident audit sealing, and
-              automatic policy evaluation. I understand that no live government,
-              DCI, regulator, or issuer database lookup will be performed.
+              automatic policy evaluation.
             </span>
           </label>
 

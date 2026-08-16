@@ -99,6 +99,38 @@ const SERVICE_CERTIFICATION_REQUIREMENTS: Record<
     required: true,
     label: "Mechanic trade certificate",
   },
+  carpenter: {
+    required: true,
+    label: "Carpentry trade certificate",
+  },
+  driver: {
+    required: true,
+    label: "Driving licence",
+  },
+  mason: {
+    required: true,
+    label: "Masonry trade certificate",
+  },
+  glazier: {
+    required: true,
+    label: "Glazing trade certificate",
+  },
+  gardener: {
+    required: true,
+    label: "Gardening or horticulture certificate",
+  },
+  "interior decorator": {
+    required: true,
+    label: "Interior decoration certificate",
+  },
+  painter: {
+    required: true,
+    label: "Painting trade certificate",
+  },
+  "internet service installer": {
+    required: true,
+    label: "Internet installation or networking certificate",
+  },
   cleaning: {
     required: false,
     label: "Cleaning or safety certificate",
@@ -106,9 +138,29 @@ const SERVICE_CERTIFICATION_REQUIREMENTS: Record<
 };
 
 const CANONICAL_SERVICE_CATEGORIES: Record<string, string> = {
+  carpenter: "Carpenter",
+  carpentry: "Carpenter",
   cleaning: "Cleaning",
+  driver: "Driver",
+  gardener: "Gardener",
+  gardeners: "Gardener",
+  gardening: "Gardener",
+  gardner: "Gardener",
+  gardners: "Gardener",
+  glazier: "Glazier",
+  glazing: "Glazier",
+  "interior decoration": "Interior Decorator",
+  "interior decorator": "Interior Decorator",
+  "interior decorating": "Interior Decorator",
+  "internet installer": "Internet Service Installer",
+  "internet service installer": "Internet Service Installer",
+  "internet service installers": "Internet Service Installer",
   electrical: "Electrical",
+  mason: "Mason",
+  masonry: "Mason",
   mechanic: "Mechanic",
+  painter: "Painter",
+  painting: "Painter",
   plumber: "Plumber",
   plumbing: "Plumber",
 };
