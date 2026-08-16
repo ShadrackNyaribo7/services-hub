@@ -76,6 +76,8 @@ export interface ProviderApplication {
   certificationIssuer?: string;
   certificationName?: string;
   verificationConsent?: boolean;
+  phoneVerificationRequested?: boolean;
+  phoneVerificationToken?: string;
 }
 
 export interface ProviderQualificationCheckResponse {
@@ -116,6 +118,10 @@ export interface ProviderApplicationResponse {
       credentialVerifiedAt?: Date | string | null;
       credentialManualReference?: string | null;
       verificationConsentAt?: Date | string | null;
+      phoneVerifiedAt?: Date | string | null;
+      phoneVerificationMethod?: string | null;
+      phoneVerificationSource?: string | null;
+      phoneVerificationReference?: string | null;
       identityVerificationLevel?: string | null;
       identityVerificationMethod?: string | null;
       identityVerificationSource?: string | null;

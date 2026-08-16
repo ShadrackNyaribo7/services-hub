@@ -58,6 +58,12 @@ export default async function AdminProvidersPage() {
               <p>County: {provider.county}</p>
               <p>Category: {provider.serviceCategory}</p>
               <p>Status: {provider.verificationStatus}</p>
+              <p>
+                Mobile verification:{" "}
+                {provider.phoneVerifiedAt
+                  ? `Verified via ${provider.phoneVerificationSource ?? "trusted provider"} on ${provider.phoneVerifiedAt.toLocaleString()}`
+                  : "Optional verification not completed"}
+              </p>
               <p>ID: {provider.idNumber ?? "Missing"}</p>
               <p>
                 Police clearance number:{" "}

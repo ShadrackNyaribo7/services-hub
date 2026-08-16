@@ -37,6 +37,10 @@ model ProviderProfile {
   credentialVerifiedAt          DateTime?
   credentialManualReference     String?
   verificationConsentAt         DateTime?
+  phoneVerifiedAt               DateTime?
+  phoneVerificationMethod       String?
+  phoneVerificationSource       String?
+  phoneVerificationReference    String?
   identityVerificationLevel     String?
   identityVerificationMethod    String?
   identityVerificationSource    String?
@@ -66,6 +70,44 @@ model ProviderProfile {
   totalTwoStar   Int         @default(0)
   totalOneStar   Int         @default(0)
   rankingTier    RankingTier @default(NEW)
+}
+
+model MobileVerificationChallenge {
+  id                     String                    @id @default(cuid())
+  tokenHash              String                    @unique
+  phone                  String
+  purpose                MobileVerificationPurpose
+  status                 MobileVerificationStatus  @default(PENDING)
+  amount                 Int                       @default(1)
+  accountReference       String                    @unique
+  requestFingerprint     String
+  mpesaCheckoutRequestId String?                   @unique
+  mpesaMerchantRequestId String?
+  mpesaReceiptNumber     String?                   @unique
+  resultCode             Int?
+  resultDescription      String?
+  expiresAt              DateTime
+  verifiedAt             DateTime?
+  consumedAt             DateTime?
+  createdAt              DateTime                  @default(now())
+  updatedAt              DateTime                  @updatedAt
+
+  @@index([phone, createdAt])
+  @@index([requestFingerprint, createdAt])
+}
+
+model ProviderMobileSession {
+  id                      String   @id @default(cuid())
+  tokenHash               String   @unique
+  phone                   String
+  userId                  String?
+  verificationChallengeId String?
+  expiresAt               DateTime
+  lastUsedAt              DateTime @default(now())
+  createdAt               DateTime @default(now())
+
+  @@index([phone, expiresAt])
+  @@index([userId, expiresAt])
 }
 
 model Booking {
@@ -131,6 +173,18 @@ enum VerificationStatus {
   APPROVED
   REJECTED
   SUSPENDED
+}
+
+enum MobileVerificationPurpose {
+  PROVIDER_APPLICATION
+  PROVIDER_SIGN_IN
+}
+
+enum MobileVerificationStatus {
+  PENDING
+  VERIFIED
+  FAILED
+  EXPIRED
 }
 
 enum BookingStatus {

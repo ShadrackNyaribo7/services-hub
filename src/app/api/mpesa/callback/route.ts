@@ -1,3 +1,4 @@
+import type { MobileVerificationChallenge } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { mpesaService } from "@/lib/mpesa/mpesaService";
 import { prisma } from "@/lib/prisma";
@@ -50,6 +51,137 @@ function invalidCallback(message: string, status = 400) {
   return NextResponse.json({ ResultCode: 1, ResultDesc: message }, { status });
 }
 
+async function processMobileVerificationCallback(input: {
+  challenge: MobileVerificationChallenge;
+  values: Record<string, unknown>;
+  merchantRequestId: string;
+  checkoutRequestId: string;
+  resultCode: number;
+  resultDescription: string;
+}) {
+  const {
+    challenge,
+    values,
+    merchantRequestId,
+    checkoutRequestId,
+    resultCode,
+    resultDescription,
+  } = input;
+
+  if (
+    !challenge.mpesaMerchantRequestId ||
+    challenge.mpesaMerchantRequestId !== merchantRequestId
+  ) {
+    return invalidCallback("Callback merchant reference mismatch");
+  }
+
+  if (challenge.status === "VERIFIED") {
+    return NextResponse.json({
+      ResultCode: 0,
+      ResultDesc: "Mobile verification already processed",
+    });
+  }
+
+  if (challenge.expiresAt <= new Date()) {
+    await prisma.mobileVerificationChallenge.updateMany({
+      where: { id: challenge.id, status: "PENDING" },
+      data: { status: "EXPIRED", resultCode, resultDescription },
+    });
+    return NextResponse.json({
+      ResultCode: 0,
+      ResultDesc: "Mobile verification expired",
+    });
+  }
+
+  if (resultCode !== 0) {
+    await prisma.mobileVerificationChallenge.updateMany({
+      where: { id: challenge.id, status: "PENDING" },
+      data: { status: "FAILED", resultCode, resultDescription },
+    });
+    return NextResponse.json({
+      ResultCode: 0,
+      ResultDesc: "Mobile verification result recorded",
+    });
+  }
+
+  const metadata = readCallbackMetadata(
+    (values.CallbackMetadata as Record<string, unknown> | undefined)?.Item,
+  );
+  const paymentAmount = Number(metadata.get("Amount"));
+  const receiptNumber = callbackText(
+    metadata.get("MpesaReceiptNumber"),
+    "MpesaReceiptNumber",
+    32,
+  ).toUpperCase();
+  const phoneNumber = mpesaService.formatPhoneNumber(
+    callbackText(metadata.get("PhoneNumber"), "PhoneNumber", 24),
+  );
+  const rawAccountReference = metadata.get("AccountReference");
+  const accountReference =
+    typeof rawAccountReference === "string" && rawAccountReference.trim()
+      ? callbackText(rawAccountReference, "AccountReference", 12)
+      : "";
+
+  if (paymentAmount !== challenge.amount) {
+    return invalidCallback("Verification amount mismatch");
+  }
+  if (!/^[A-Z0-9]{8,32}$/.test(receiptNumber)) {
+    return invalidCallback("Invalid M-Pesa receipt number");
+  }
+  if (`+${phoneNumber}` !== challenge.phone) {
+    return invalidCallback("Verification phone number mismatch");
+  }
+  if (accountReference && accountReference !== challenge.accountReference) {
+    return invalidCallback("Verification account reference mismatch");
+  }
+
+  const [duplicateBookingReceipt, duplicateVerificationReceipt] =
+    await Promise.all([
+      prisma.booking.findUnique({
+        where: { mpesaReceiptNumber: receiptNumber },
+        select: { id: true },
+      }),
+      prisma.mobileVerificationChallenge.findFirst({
+        where: {
+          mpesaReceiptNumber: receiptNumber,
+          id: { not: challenge.id },
+        },
+        select: { id: true },
+      }),
+    ]);
+  if (duplicateBookingReceipt || duplicateVerificationReceipt) {
+    return invalidCallback("M-Pesa receipt has already been used");
+  }
+
+  const update = await prisma.mobileVerificationChallenge.updateMany({
+    where: {
+      id: challenge.id,
+      mpesaCheckoutRequestId: checkoutRequestId,
+      mpesaMerchantRequestId: merchantRequestId,
+      status: "PENDING",
+    },
+    data: {
+      status: "VERIFIED",
+      mpesaReceiptNumber: receiptNumber,
+      resultCode,
+      resultDescription,
+      verifiedAt: new Date(),
+    },
+  });
+  if (update.count !== 1) {
+    return invalidCallback("Mobile verification state changed", 409);
+  }
+
+  console.info("M-Pesa mobile verification processed", {
+    challengeId: challenge.id,
+    checkoutRequestId,
+  });
+  return NextResponse.json({
+    ResultCode: 0,
+    ResultDesc: "Mobile verification processed",
+  });
+}
+
 export async function POST(request: Request) {
   try {
     const body = await readBoundedJsonObject(request, 32_768);
@@ -91,7 +223,21 @@ export async function POST(request: Request) {
     });
 
     if (!existingBooking) {
-      return invalidCallback("Booking not found", 404);
+      const mobileChallenge =
+        await prisma.mobileVerificationChallenge.findUnique({
+          where: { mpesaCheckoutRequestId: checkoutRequestId },
+        });
+      if (!mobileChallenge) {
+        return invalidCallback("Payment request not found", 404);
+      }
+      return processMobileVerificationCallback({
+        challenge: mobileChallenge,
+        values,
+        merchantRequestId,
+        checkoutRequestId,
+        resultCode,
+        resultDescription,
+      });
     }
 
     if (

@@ -70,9 +70,11 @@ test-*.js
 !src/lib/verification/__tests__/credentialVerificationService.test.ts
 !src/lib/verification/__tests__/qualificationService.test.ts
 !src/lib/verification/__tests__/verificationService.test.ts
+!src/lib/verification/__tests__/providerApplicationRoute.test.ts
 !src/lib/pricing/__tests__/
 !src/lib/pricing/__tests__/profitEngine.test.ts
 !src/__tests__/
 !src/__tests__/mpesaIntegration.test.ts
+!src/__tests__/mobileVerification.test.ts
 !src/app/api/kora/__tests__/
 !src/app/api/kora/__tests__/disabledRoutes.test.ts

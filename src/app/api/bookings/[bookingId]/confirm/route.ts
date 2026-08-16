@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { auth } from "@clerk/nextjs/server";
+import { getAuthenticatedAppUserId } from "@/lib/auth/providerMobileSession";
 import {
   readBoundedJsonObject,
   readTextInput,
@@ -15,7 +15,7 @@ export async function POST(
   request: Request,
   { params }: { params: Promise<{ bookingId: string }> },
 ) {
-  const { userId } = await auth();
+  const userId = await getAuthenticatedAppUserId();
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }

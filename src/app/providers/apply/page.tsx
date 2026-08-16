@@ -1,16 +1,92 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { ClerkProvider, useAuth } from "@clerk/nextjs";
+import { FormEvent, useCallback, useEffect, useState } from "react";
+import MpesaMobileVerification from "@/components/MpesaMobileVerification";
 import { useProviderApplication } from "@/hooks/useProviderApplication";
 
 export default function ProviderApplyPage() {
+  return (
+    <ClerkProvider>
+      <ProviderApplicationForm />
+    </ClerkProvider>
+  );
+}
+
+function ProviderApplicationForm() {
+  const { isLoaded: isUserLoaded, isSignedIn } = useAuth();
   const { submitApplication, isLoading, error, success, message } =
     useProviderApplication();
   const [serviceCategory, setServiceCategory] = useState("Cleaning");
+  const [phone, setPhone] = useState("");
+  const [verifyMobileChoice, setVerifyMobileChoice] = useState(true);
+  const [mobileVerificationToken, setMobileVerificationToken] = useState("");
+  const [mobileSessionVerified, setMobileSessionVerified] = useState(false);
+  const [mobileVerificationError, setMobileVerificationError] = useState<
+    string | null
+  >(null);
   const credentialRequired = serviceCategory !== "Cleaning";
+  const mobileVerificationRequired = isUserLoaded && !isSignedIn;
+  const verifyMobile = mobileVerificationRequired || verifyMobileChoice;
+  const hasMobileVerification =
+    Boolean(mobileVerificationToken) || mobileSessionVerified;
+
+  const resetMobileVerification = useCallback(() => {
+    setMobileVerificationToken("");
+    setMobileSessionVerified(false);
+    setMobileVerificationError(null);
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadMobileSession() {
+      try {
+        const response = await fetch("/api/provider-mobile-session", {
+          cache: "no-store",
+        });
+        const result = (await response.json()) as {
+          authenticated?: boolean;
+          phone?: string;
+          currentVerification?: boolean;
+        };
+        if (
+          !cancelled &&
+          response.ok &&
+          result.authenticated &&
+          result.currentVerification &&
+          result.phone
+        ) {
+          setPhone(result.phone);
+          setVerifyMobileChoice(true);
+          setMobileSessionVerified(true);
+        }
+      } catch {
+        // A missing mobile session is normal for Clerk-authenticated users.
+      }
+    }
+
+    void loadMobileSession();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const handleMobileVerified = useCallback((token: string) => {
+    setMobileVerificationToken(token);
+    setMobileSessionVerified(true);
+    setMobileVerificationError(null);
+  }, []);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+
+    if ((verifyMobile || !isSignedIn) && !hasMobileVerification) {
+      setMobileVerificationError(
+        "Complete M-Pesa mobile verification before submitting without an email account.",
+      );
+      return;
+    }
 
     const formData = new FormData(event.currentTarget);
 
@@ -37,6 +113,8 @@ export default function ProviderApplyPage() {
       certificationIssuer: formData.get("certificationIssuer") as string,
       certificationName: formData.get("certificationName") as string,
       verificationConsent: formData.get("verificationConsent") === "yes",
+      phoneVerificationRequested: hasMobileVerification,
+      phoneVerificationToken: mobileVerificationToken || undefined,
     };
 
     const result = await submitApplication(application);
@@ -44,6 +122,9 @@ export default function ProviderApplyPage() {
     if (result) {
       event.currentTarget.reset();
       setServiceCategory("Cleaning");
+      setPhone("");
+      setVerifyMobileChoice(true);
+      resetMobileVerification();
       // Success message will be handled by the success state
     }
   }
@@ -75,11 +156,65 @@ export default function ProviderApplyPage() {
             <span className="font-medium text-emerald-400">Phone number</span>
             <input
               name="phone"
+              type="tel"
               required
               placeholder="07XXXXXXXX"
+              autoComplete="tel"
+              inputMode="tel"
+              value={phone}
+              onChange={(event) => {
+                setPhone(event.target.value);
+                resetMobileVerification();
+              }}
               className="mt-2 w-full rounded-md border px-3 py-2 min-h-[44px]"
             />
           </label>
+
+          <fieldset className="rounded-md border border-emerald-200 bg-emerald-50 p-4">
+            <label className="flex items-start gap-3 text-sm text-slate-700">
+              <input
+                type="checkbox"
+                checked={verifyMobile}
+                disabled={mobileVerificationRequired}
+                onChange={(event) => {
+                  setVerifyMobileChoice(event.target.checked);
+                  resetMobileVerification();
+                }}
+                className="mt-1 size-4 shrink-0"
+              />
+              <span>
+                <span className="block font-semibold text-slate-950">
+                  Verify mobile number with M-Pesa
+                </span>
+                {mobileVerificationRequired
+                  ? "Required when applying without an email account."
+                  : "Optional because you are already signed in."}
+              </span>
+            </label>
+
+            {verifyMobile && (
+              <div className="mt-4 border-t border-emerald-200 pt-4">
+                {mobileSessionVerified && !mobileVerificationToken ? (
+                  <p className="font-semibold text-emerald-800">
+                    ✓ Mobile number verified through your current M-Pesa
+                    session.
+                  </p>
+                ) : (
+                  <MpesaMobileVerification
+                    phone={phone}
+                    purpose="PROVIDER_APPLICATION"
+                    onVerified={handleMobileVerified}
+                    onReset={resetMobileVerification}
+                  />
+                )}
+                {mobileVerificationError && (
+                  <p className="mt-3 font-medium text-red-700">
+                    {mobileVerificationError}
+                  </p>
+                )}
+              </div>
+            )}
+          </fieldset>
 
           <label className="block">
             <span className="font-medium text-emerald-400">County</span>
@@ -297,6 +432,7 @@ export default function ProviderApplyPage() {
           </label>
 
           <button
+            type="submit"
             disabled={isLoading}
             className="w-full min-h-[44px] rounded-md bg-emerald-700 px-5 py-3 font-semibold text-white disabled:bg-slate-400"
           >

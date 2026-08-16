@@ -1,6 +1,6 @@
 import { Prisma } from "@prisma/client";
-import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
+import { getAuthenticatedAppUserId } from "@/lib/auth/providerMobileSession";
 import { prisma } from "@/lib/prisma";
 import {
   decryptProviderCoordinates,
@@ -88,7 +88,7 @@ function readCoordinates(body: Record<string, unknown>) {
 }
 
 export async function POST(request: Request) {
-  const { userId } = await auth();
+  const userId = await getAuthenticatedAppUserId();
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }

@@ -19,7 +19,8 @@ admin workflow state this limitation explicitly.
 Every application is checked on the server. Browser validation is only a
 usability aid.
 
-1. The applicant must be authenticated with Clerk.
+1. The applicant must either be authenticated with Clerk or complete the
+   application-owned M-Pesa mobile verification flow.
 2. JSON requests must use the correct content type and stay within the request
    size and field-length limits.
 3. Only supported service categories are accepted.
@@ -70,6 +71,37 @@ An approved provider is bookable immediately after all offline rules pass and
 the local profile is set to `APPROVED`. Public provider listings and booking
 creation filter for that status. Administrators retain post-approval suspension
 and rejection controls.
+
+## Independent mobile verification and sign-in
+
+Provider mobile verification no longer depends on Clerk phone settings or an
+email address. The application initiates a KES 1 Safaricom Daraja M-Pesa STK
+Push to the submitted Kenyan number. The applicant approves the prompt with
+the handset's M-Pesa PIN. A validated Daraja callback must match the expected
+checkout ID, merchant ID, amount, and phone before the challenge becomes
+verified.
+
+Successful verification creates an opaque, hashed, HTTP-only provider session
+that lasts for 30 days. A first-time applicant can submit without an email;
+after the provider record exists, the same flow supports mobile-only sign-in at
+`/provider-signin`. Clerk remains available as an alternative authentication
+method.
+
+Required production variables are the existing Daraja settings:
+
+- `MPESA_CONSUMER_KEY`
+- `MPESA_CONSUMER_SECRET`
+- `MPESA_PASSKEY`
+- `MPESA_SHORTCODE`
+- `MPESA_ENVIRONMENT=production`
+- `MPESA_CALLBACK_URL=https://www.patanafuu.pro/api/mpesa/callback`
+
+The browser receives only a random challenge token. Only its SHA-256 hash is
+stored. Pending challenges expire after 10 minutes, verified application
+challenges can be consumed once, and initiation is rate-limited by phone and
+request fingerprint. Daraja is an M-Pesa payment API rather than a general SMS
+gateway, so the UI must always disclose the KES 1 confirmation amount before
+the applicant starts it.
 
 ## Operational checks
 

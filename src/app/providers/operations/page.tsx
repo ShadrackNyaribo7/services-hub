@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
-import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import ProviderOperationsPanel from "@/components/ProviderOperationsPanel";
+import { getAuthenticatedAppUserId } from "@/lib/auth/providerMobileSession";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
@@ -13,8 +13,8 @@ export const metadata: Metadata = {
 };
 
 export default async function ProviderOperationsPage() {
-  const { userId } = await auth();
-  if (!userId) redirect("/signin");
+  const userId = await getAuthenticatedAppUserId();
+  if (!userId) redirect("/provider-signin");
 
   const provider = await prisma.providerProfile.findUnique({
     where: { userId },

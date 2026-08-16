@@ -1,12 +1,12 @@
-import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
+import { getAuthenticatedAppUserId } from "@/lib/auth/providerMobileSession";
 import { prisma } from "@/lib/prisma";
 import { isLocationFresh } from "@/lib/location/providerLocationSecurity";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  const { userId } = await auth();
+  const userId = await getAuthenticatedAppUserId();
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }

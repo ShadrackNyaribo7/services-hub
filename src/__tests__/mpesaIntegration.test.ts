@@ -12,8 +12,18 @@ const mockPrismaBooking = {
   updateMany: jest.fn() as jest.MockedFunction<any>,
 };
 
+const mockPrismaMobileVerificationChallenge = {
+  findUnique: jest.fn() as jest.MockedFunction<any>,
+  findFirst: jest.fn() as jest.MockedFunction<any>,
+  update: jest.fn() as jest.MockedFunction<any>,
+  updateMany: jest.fn() as jest.MockedFunction<any>,
+};
+
 jest.mock("@/lib/prisma", () => ({
-  prisma: { booking: mockPrismaBooking },
+  prisma: {
+    booking: mockPrismaBooking,
+    mobileVerificationChallenge: mockPrismaMobileVerificationChallenge,
+  },
 }));
 
 const mockAuth = jest.fn() as jest.MockedFunction<any>;
@@ -29,6 +39,7 @@ import {
 import { POST as initiatePayment } from "@/app/api/mpesa/initiate/route";
 import { POST as receiveCallback } from "@/app/api/mpesa/callback/route";
 import { GET as getPaymentStatus } from "@/app/api/mpesa/status/route";
+import { createMobileVerificationReference } from "@/lib/verification/mobileVerification";
 
 const TEST_ENV = {
   MPESA_CONSUMER_KEY: "test_consumer_key",
@@ -103,6 +114,49 @@ function callbackPayload(overrides: Record<string, unknown> = {}) {
   };
 }
 
+function pendingMobileChallenge(overrides: Record<string, unknown> = {}) {
+  return {
+    id: "mobile-challenge-1",
+    tokenHash: "a".repeat(64),
+    phone: "+254712345678",
+    purpose: "PROVIDER_APPLICATION",
+    status: "PENDING",
+    amount: 1,
+    accountReference: createMobileVerificationReference("mobile-challenge-1"),
+    requestFingerprint: "b".repeat(64),
+    mpesaCheckoutRequestId: "ws_CO_mobile_123",
+    mpesaMerchantRequestId: "merchant-mobile-123",
+    mpesaReceiptNumber: null,
+    resultCode: null,
+    resultDescription: null,
+    expiresAt: new Date(Date.now() + 10 * 60 * 1_000),
+    verifiedAt: null,
+    consumedAt: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    ...overrides,
+  };
+}
+
+function mobileCallbackPayload(overrides: Record<string, unknown> = {}) {
+  return callbackPayload({
+    MerchantRequestID: "merchant-mobile-123",
+    CheckoutRequestID: "ws_CO_mobile_123",
+    CallbackMetadata: {
+      Item: [
+        { Name: "Amount", Value: 1 },
+        { Name: "MpesaReceiptNumber", Value: "MOBILE12345" },
+        { Name: "PhoneNumber", Value: "254712345678" },
+        {
+          Name: "AccountReference",
+          Value: createMobileVerificationReference("mobile-challenge-1"),
+        },
+      ],
+    },
+    ...overrides,
+  });
+}
+
 describe("M-Pesa production hardening", () => {
   beforeEach(() => {
     Object.assign(process.env, TEST_ENV);
@@ -112,6 +166,9 @@ describe("M-Pesa production hardening", () => {
     mockedAxios.post.mockReset();
     mockedAxios.isAxiosError.mockReset();
     Object.values(mockPrismaBooking).forEach((mock) => mock.mockReset());
+    Object.values(mockPrismaMobileVerificationChallenge).forEach((mock) =>
+      mock.mockReset(),
+    );
     mockAuth.mockReset();
     mpesaService.resetTokenCacheForTests();
   });
@@ -592,6 +649,99 @@ describe("M-Pesa production hardening", () => {
       );
       expect(response.status).toBe(415);
       expect(mockPrismaBooking.findUnique).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("M-Pesa mobile ownership callbacks", () => {
+    test("verifies a correlated KES 1 ownership confirmation", async () => {
+      mockPrismaBooking.findUnique
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce(null);
+      mockPrismaMobileVerificationChallenge.findUnique.mockResolvedValueOnce(
+        pendingMobileChallenge(),
+      );
+      mockPrismaMobileVerificationChallenge.findFirst.mockResolvedValueOnce(
+        null,
+      );
+      mockPrismaMobileVerificationChallenge.updateMany.mockResolvedValueOnce({
+        count: 1,
+      });
+
+      const response = await receiveCallback(
+        jsonRequest(
+          "http://localhost/api/mpesa/callback",
+          mobileCallbackPayload(),
+        ),
+      );
+
+      expect(response.status).toBe(200);
+      expect(
+        mockPrismaMobileVerificationChallenge.updateMany,
+      ).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            status: "VERIFIED",
+            mpesaReceiptNumber: "MOBILE12345",
+          }),
+        }),
+      );
+    });
+
+    test("rejects a mobile callback for a different phone", async () => {
+      mockPrismaBooking.findUnique.mockResolvedValueOnce(null);
+      mockPrismaMobileVerificationChallenge.findUnique.mockResolvedValueOnce(
+        pendingMobileChallenge(),
+      );
+
+      const response = await receiveCallback(
+        jsonRequest(
+          "http://localhost/api/mpesa/callback",
+          mobileCallbackPayload({
+            CallbackMetadata: {
+              Item: [
+                { Name: "Amount", Value: 1 },
+                { Name: "MpesaReceiptNumber", Value: "MOBILE12345" },
+                { Name: "PhoneNumber", Value: "254711111111" },
+              ],
+            },
+          }),
+        ),
+      );
+
+      expect(response.status).toBe(400);
+      expect(
+        mockPrismaMobileVerificationChallenge.updateMany,
+      ).not.toHaveBeenCalled();
+    });
+
+    test("records a declined mobile confirmation without success metadata", async () => {
+      mockPrismaBooking.findUnique.mockResolvedValueOnce(null);
+      mockPrismaMobileVerificationChallenge.findUnique.mockResolvedValueOnce(
+        pendingMobileChallenge(),
+      );
+      mockPrismaMobileVerificationChallenge.updateMany.mockResolvedValueOnce({
+        count: 1,
+      });
+
+      const response = await receiveCallback(
+        jsonRequest(
+          "http://localhost/api/mpesa/callback",
+          mobileCallbackPayload({
+            ResultCode: 1032,
+            ResultDesc: "Cancelled",
+            CallbackMetadata: undefined,
+          }),
+        ),
+      );
+
+      expect(response.status).toBe(200);
+      expect(
+        mockPrismaMobileVerificationChallenge.updateMany,
+      ).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ status: "FAILED", resultCode: 1032 }),
+        }),
+      );
     });
   });
 
