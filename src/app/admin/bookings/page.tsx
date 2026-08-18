@@ -108,7 +108,10 @@ export default async function AdminBookingsPage() {
                 <h2 className="text-xl font-semibold">{booking.clientName}</h2>
                 <p>Client phone: {booking.clientPhone}</p>
                 <p>Provider: {booking.providerProfile.user.name}</p>
-                <p>Service: {booking.providerProfile.serviceCategory}</p>
+                <p>
+                  Service:{" "}
+                  {booking.serviceName ?? booking.providerProfile.serviceCategory}
+                </p>
                 <p>County: {booking.county}</p>
                 <p>Status: {booking.status}</p>
                 <div className="mt-3 rounded-md bg-slate-100 p-3">

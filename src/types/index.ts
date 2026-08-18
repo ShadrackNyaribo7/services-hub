@@ -145,13 +145,13 @@ export interface ProviderApplicationResponse {
 // Booking types
 export interface Booking {
   providerProfileId: string;
+  providerServiceId: string;
   clientName: string;
   clientPhone: string;
   county: string;
   scheduledDate: string;
   notes?: string;
   // Payment fields
-  amount?: number;
   mpesaPhoneNumber?: string;
 }
 
@@ -159,6 +159,8 @@ export interface BookingResponse {
   booking: {
     id: string;
     providerProfileId: string;
+    providerServiceId?: string | null;
+    serviceName?: string | null;
     clientName: string;
     clientPhone: string;
     county: string;

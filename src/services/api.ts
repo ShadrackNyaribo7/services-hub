@@ -21,33 +21,65 @@ import {
 // server-only payment configuration and must never redirect authenticated API
 // calls to a build-time hostname.
 const API_BASE_URL = "";
+const REQUEST_TIMEOUT_MS = 30_000;
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
 
 // Generic API handler with error handling
 async function apiCall<T>(
   endpoint: string,
   options: RequestInit = {},
 ): Promise<ApiResponse<T>> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
   try {
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      ...options,
       headers: {
         "Content-Type": "application/json",
         ...options.headers,
       },
-      ...options,
+      signal: options.signal ?? controller.signal,
     });
 
-    const data = await response.json();
+    const responseText = await response.text();
+    let data: unknown;
+    if (responseText) {
+      try {
+        data = JSON.parse(responseText);
+      } catch {
+        return {
+          error: response.ok
+            ? "The service returned an invalid response. Please retry to confirm your request."
+            : `The request failed with status ${response.status}. Please try again.`,
+          status: response.status,
+        };
+      }
+    }
+
+    const errorMessage =
+      isRecord(data) && typeof data.error === "string"
+        ? data.error
+        : "The request could not be completed.";
 
     return {
-      data: response.ok ? data : undefined,
-      error: response.ok ? undefined : data.error || "An error occurred",
+      data: data as T | undefined,
+      error: response.ok ? undefined : errorMessage,
       status: response.status,
     };
-  } catch (error) {
+  } catch {
     return {
-      error: error instanceof Error ? error.message : "Network error",
+      error:
+        controller.signal.aborted && !options.signal?.aborted
+          ? "The request took too long. Please try again to confirm whether it was received."
+          : "Could not reach the service. Check your connection and try again.",
       status: 0,
     };
+  } finally {
+    clearTimeout(timeoutId);
   }
 }
 

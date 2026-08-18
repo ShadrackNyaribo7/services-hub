@@ -18,11 +18,12 @@ export default async function ProviderOperationsPage() {
 
   const provider = await prisma.providerProfile.findUnique({
     where: { userId },
-    select: { verificationStatus: true },
+    select: { verificationStatus: true, servicesConfirmedAt: true },
   });
   if (!provider || provider.verificationStatus !== "APPROVED") {
     redirect("/providers/apply");
   }
+  if (!provider.servicesConfirmedAt) redirect("/providers/profile");
 
   return (
     <main className="min-h-screen bg-slate-950 px-4 py-10 text-slate-100 sm:px-6">

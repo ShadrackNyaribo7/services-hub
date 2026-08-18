@@ -13,10 +13,25 @@ type VerificationState =
 type VerificationResponse = {
   token?: string;
   status?: "PENDING" | "VERIFIED" | "FAILED" | "EXPIRED";
+  expiresAt?: string;
   message?: string;
   redirectTo?: string | null;
   error?: string;
 };
+
+async function fetchWithTimeout(
+  input: RequestInfo | URL,
+  init: RequestInit,
+  timeoutMs: number,
+) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(input, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
 
 export default function MpesaMobileVerification({
   phone,
@@ -31,6 +46,7 @@ export default function MpesaMobileVerification({
 }) {
   const [state, setState] = useState<VerificationState>("idle");
   const [token, setToken] = useState("");
+  const [expiresAt, setExpiresAt] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const previousPhone = useRef(phone);
@@ -40,6 +56,7 @@ export default function MpesaMobileVerification({
     previousPhone.current = phone;
     setState("idle");
     setToken("");
+    setExpiresAt("");
     setMessage("");
     setError("");
     onReset?.();
@@ -52,13 +69,24 @@ export default function MpesaMobileVerification({
     let timeoutId: ReturnType<typeof setTimeout> | undefined;
 
     async function checkStatus() {
+      const deadline = Date.parse(expiresAt);
+      if (Number.isFinite(deadline) && Date.now() >= deadline) {
+        setState("failed");
+        setError("This verification request expired. Start a new one.");
+        return;
+      }
+
       try {
-        const response = await fetch("/api/mobile-verification/status", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ token }),
-          cache: "no-store",
-        });
+        const response = await fetchWithTimeout(
+          "/api/mobile-verification/status",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ token }),
+            cache: "no-store",
+          },
+          20_000,
+        );
         const result = (await response.json()) as VerificationResponse;
         if (cancelled) return;
 
@@ -69,7 +97,9 @@ export default function MpesaMobileVerification({
         }
         if (result.status === "VERIFIED") {
           setState("verified");
-          setMessage(result.message || "Mobile number verified through M-Pesa.");
+          setMessage(
+            result.message || "Mobile number verified through M-Pesa.",
+          );
           onVerified(token, result.redirectTo ?? null);
           return;
         }
@@ -82,7 +112,14 @@ export default function MpesaMobileVerification({
         setMessage(result.message || "Waiting for the M-Pesa confirmation.");
         timeoutId = setTimeout(checkStatus, 3_000);
       } catch {
-        if (!cancelled) timeoutId = setTimeout(checkStatus, 5_000);
+        if (cancelled) return;
+        if (Number.isFinite(deadline) && Date.now() >= deadline) {
+          setState("failed");
+          setError("This verification request expired. Start a new one.");
+          return;
+        }
+        setMessage("Still checking with M-Pesa. Please keep this page open.");
+        timeoutId = setTimeout(checkStatus, 5_000);
       }
     }
 
@@ -91,7 +128,7 @@ export default function MpesaMobileVerification({
       cancelled = true;
       if (timeoutId) clearTimeout(timeoutId);
     };
-  }, [onVerified, state, token]);
+  }, [expiresAt, onVerified, state, token]);
 
   async function startVerification() {
     setState("initiating");
@@ -100,11 +137,15 @@ export default function MpesaMobileVerification({
     onReset?.();
 
     try {
-      const response = await fetch("/api/mobile-verification/initiate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone, purpose }),
-      });
+      const response = await fetchWithTimeout(
+        "/api/mobile-verification/initiate",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ phone, purpose }),
+        },
+        30_000,
+      );
       const result = (await response.json()) as VerificationResponse;
       if (!response.ok || !result.token) {
         setState("failed");
@@ -113,6 +154,9 @@ export default function MpesaMobileVerification({
       }
 
       setToken(result.token);
+      setExpiresAt(
+        result.expiresAt ?? new Date(Date.now() + 10 * 60_000).toISOString(),
+      );
       setState("pending");
       setMessage(
         result.message ||
@@ -143,7 +187,9 @@ export default function MpesaMobileVerification({
       )}
 
       {state === "initiating" && (
-        <p className="font-medium text-slate-700">Sending M-Pesa prompt…</p>
+        <p role="status" className="font-medium text-slate-700">
+          Sending M-Pesa prompt…
+        </p>
       )}
       {state === "pending" && (
         <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950">
@@ -155,7 +201,11 @@ export default function MpesaMobileVerification({
       {state === "verified" && (
         <p className="font-semibold text-emerald-800">✓ {message}</p>
       )}
-      {error && <p className="font-medium text-red-700">{error}</p>}
+      {error && (
+        <p role="alert" className="font-medium text-red-700">
+          {error}
+        </p>
+      )}
     </div>
   );
 }

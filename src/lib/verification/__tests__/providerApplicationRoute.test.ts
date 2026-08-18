@@ -212,6 +212,45 @@ describe("POST /api/provider-applications", () => {
     expect(userUpsertMock).not.toHaveBeenCalled();
   });
 
+  it("returns the saved application when a successful response is retried", async () => {
+    const token = "b".repeat(43);
+    challengeFindUniqueMock.mockResolvedValue({
+      id: "mobile-challenge-retry",
+      tokenHash: expect.any(String),
+      phone: "+254712345678",
+      purpose: "PROVIDER_APPLICATION",
+      status: "VERIFIED",
+      verifiedAt: new Date(),
+      consumedAt: new Date(),
+    } as never);
+    userFindUniqueMock.mockResolvedValue({
+      id: "user-1",
+      name: "Jane Wanjiku Doe",
+      phone: "+254712345678",
+      role: "PROVIDER",
+      providerProfile: {
+        id: "provider-1",
+        verificationStatus: "APPROVED",
+        phoneVerificationReference: "mobile-challenge-retry",
+      },
+    } as never);
+
+    const response = await POST(
+      request(
+        validApplication({
+          phoneVerificationRequested: true,
+          phoneVerificationToken: token,
+        }),
+      ),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.message).toContain("already submitted and approved");
+    expect(transactionMock).not.toHaveBeenCalled();
+    expect(userUpsertMock).not.toHaveBeenCalled();
+  });
+
   it("requires authentication before parsing applicant evidence", async () => {
     authMock.mockResolvedValue({ userId: null } as never);
 

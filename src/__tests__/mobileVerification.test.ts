@@ -4,6 +4,7 @@ const mockChallenge = {
   count: jest.fn() as jest.MockedFunction<any>,
   create: jest.fn() as jest.MockedFunction<any>,
   update: jest.fn() as jest.MockedFunction<any>,
+  updateMany: jest.fn() as jest.MockedFunction<any>,
   findUnique: jest.fn() as jest.MockedFunction<any>,
 };
 
@@ -83,9 +84,7 @@ describe("independent M-Pesa mobile verification", () => {
   });
 
   test("rate limits repeated requests before contacting M-Pesa", async () => {
-    mockChallenge.count
-      .mockResolvedValueOnce(3)
-      .mockResolvedValueOnce(3);
+    mockChallenge.count.mockResolvedValueOnce(3).mockResolvedValueOnce(3);
     const initiateSpy = jest.spyOn(mpesaService, "initiateSTKPush");
 
     const response = await initiateVerification(
@@ -132,5 +131,101 @@ describe("independent M-Pesa mobile verification", () => {
       status: "VERIFIED",
       redirectTo: "/providers/operations",
     });
+  });
+
+  test("reconciles a successful M-Pesa query when the callback is missing", async () => {
+    const rawToken = "b".repeat(43);
+    mockChallenge.findUnique.mockResolvedValueOnce({
+      id: "challenge-query-success",
+      tokenHash: `hash:${rawToken}`,
+      phone: "+254712345678",
+      purpose: "PROVIDER_APPLICATION",
+      status: "PENDING",
+      mpesaCheckoutRequestId: "checkout-query-success",
+      expiresAt: new Date(Date.now() + 60_000),
+      verifiedAt: null,
+      resultCode: null,
+      resultDescription: null,
+      updatedAt: new Date(Date.now() - 30_000),
+    });
+    mockChallenge.updateMany.mockResolvedValueOnce({ count: 1 });
+    mockCreateSession.mockResolvedValueOnce({
+      userId: null,
+      expiresAt: new Date(Date.now() + 60_000),
+    });
+    const querySpy = jest
+      .spyOn(mpesaService, "checkPaymentStatus")
+      .mockResolvedValueOnce({
+        success: true,
+        responseCode: "0",
+        responseDescription: "Accepted",
+        resultCode: "0",
+        resultDesc: "The service request is processed successfully.",
+      });
+
+    const response = await checkVerification(
+      jsonRequest("http://localhost/api/mobile-verification/status", {
+        token: rawToken,
+      }),
+    );
+    const result = await response.json();
+
+    expect(querySpy).toHaveBeenCalledWith("checkout-query-success");
+    expect(mockChallenge.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "challenge-query-success", status: "PENDING" },
+        data: expect.objectContaining({
+          status: "VERIFIED",
+          resultCode: 0,
+          verifiedAt: expect.any(Date),
+        }),
+      }),
+    );
+    expect(result).toMatchObject({
+      status: "VERIFIED",
+      redirectTo: null,
+    });
+    querySpy.mockRestore();
+  });
+
+  test("returns a clear terminal failure from the M-Pesa query", async () => {
+    const rawToken = "c".repeat(43);
+    mockChallenge.findUnique.mockResolvedValueOnce({
+      id: "challenge-query-cancelled",
+      tokenHash: `hash:${rawToken}`,
+      phone: "+254712345678",
+      purpose: "PROVIDER_APPLICATION",
+      status: "PENDING",
+      mpesaCheckoutRequestId: "checkout-query-cancelled",
+      expiresAt: new Date(Date.now() + 60_000),
+      verifiedAt: null,
+      resultCode: null,
+      resultDescription: null,
+      updatedAt: new Date(Date.now() - 30_000),
+    });
+    mockChallenge.updateMany.mockResolvedValueOnce({ count: 1 });
+    const querySpy = jest
+      .spyOn(mpesaService, "checkPaymentStatus")
+      .mockResolvedValueOnce({
+        success: true,
+        responseCode: "0",
+        responseDescription: "Accepted",
+        resultCode: "1032",
+        resultDesc: "Request cancelled by user",
+      });
+
+    const response = await checkVerification(
+      jsonRequest("http://localhost/api/mobile-verification/status", {
+        token: rawToken,
+      }),
+    );
+    const result = await response.json();
+
+    expect(result).toMatchObject({
+      status: "FAILED",
+      message: expect.stringContaining("cancelled"),
+    });
+    expect(mockCreateSession).not.toHaveBeenCalled();
+    querySpy.mockRestore();
   });
 });

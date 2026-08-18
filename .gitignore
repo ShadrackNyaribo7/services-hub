@@ -78,3 +78,7 @@ test-*.js
 !src/__tests__/mobileVerification.test.ts
 !src/app/api/kora/__tests__/
 !src/app/api/kora/__tests__/disabledRoutes.test.ts
+!src/app/api/provider-applications/bookings/__tests__/
+!src/app/api/provider-applications/bookings/__tests__/route.test.ts
+!src/app/api/provider-services/__tests__/
+!src/app/api/provider-services/__tests__/route.test.ts

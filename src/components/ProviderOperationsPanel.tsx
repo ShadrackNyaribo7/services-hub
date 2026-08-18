@@ -8,6 +8,7 @@ type OperationBooking = {
   clientPhone: string;
   county: string;
   scheduledDate: string;
+  serviceName: string | null;
   notes: string | null;
   status: "ACCEPTED" | "IN_PROGRESS" | "AWAITING_CLIENT_CONFIRMATION";
   paymentStatus: string;
@@ -116,23 +117,29 @@ export default function ProviderOperationsPanel() {
       throw new Error(result.error || "Could not load provider operations.");
     }
     setData(result);
+    if (!result.bookings.some((booking) => booking.status === "IN_PROGRESS")) {
+      setTrackingState("idle");
+    }
   }, []);
 
   useEffect(() => {
     let mounted = true;
-    loadOperations()
-      .catch((error) => {
-        if (mounted) setMessage(locationErrorMessage(error));
-      })
-      .finally(() => {
-        if (mounted) setLoading(false);
-      });
+    const initialLoad = window.setTimeout(() => {
+      void loadOperations()
+        .catch((error) => {
+          if (mounted) setMessage(locationErrorMessage(error));
+        })
+        .finally(() => {
+          if (mounted) setLoading(false);
+        });
+    }, 0);
 
     const refresh = window.setInterval(() => {
       void loadOperations().catch(() => undefined);
     }, HEARTBEAT_INTERVAL_MS);
     return () => {
       mounted = false;
+      window.clearTimeout(initialLoad);
       window.clearInterval(refresh);
     };
   }, [loadOperations]);
@@ -189,12 +196,10 @@ export default function ProviderOperationsPanel() {
 
   useEffect(() => {
     if (!activeBookingId) {
-      setTrackingState("idle");
       return;
     }
 
     let cancelled = false;
-    let watchId: number | undefined;
 
     const requestWakeLock = async () => {
       const wakeLock = (navigator as WakeLockNavigator).wakeLock;
@@ -223,14 +228,19 @@ export default function ProviderOperationsPanel() {
     };
 
     if (!navigator.geolocation) {
-      setTrackingState("error");
-      setMessage("This device does not support required location tracking.");
-      return;
+      const unavailableTimer = window.setTimeout(() => {
+        setTrackingState("error");
+        setMessage("This device does not support required location tracking.");
+      }, 0);
+      return () => window.clearTimeout(unavailableTimer);
     }
 
-    setTrackingState("starting");
+    const startingTimer = window.setTimeout(
+      () => setTrackingState("starting"),
+      0,
+    );
     void requestWakeLock();
-    watchId = navigator.geolocation.watchPosition(
+    const watchId = navigator.geolocation.watchPosition(
       handlePosition,
       handlePositionError,
       { enableHighAccuracy: true, maximumAge: 0, timeout: 15_000 },
@@ -263,7 +273,8 @@ export default function ProviderOperationsPanel() {
 
     return () => {
       cancelled = true;
-      if (watchId !== undefined) navigator.geolocation.clearWatch(watchId);
+      window.clearTimeout(startingTimer);
+      navigator.geolocation.clearWatch(watchId);
       window.clearInterval(heartbeat);
       document.removeEventListener("visibilitychange", handleVisibility);
       void wakeLockRef.current?.release().catch(() => undefined);
@@ -345,6 +356,9 @@ export default function ProviderOperationsPanel() {
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <h2 className="text-xl font-semibold">{booking.clientName}</h2>
+                <p className="font-semibold text-emerald-700">
+                  {booking.serviceName ?? data.provider.serviceCategory}
+                </p>
                 <p>{booking.clientPhone}</p>
                 <p>{booking.county}</p>
                 <p>{new Date(booking.scheduledDate).toLocaleString()}</p>

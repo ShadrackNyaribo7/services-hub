@@ -26,7 +26,10 @@ type ServicesPageProps = {
 };
 
 type ProviderResult = Prisma.ProviderProfileGetPayload<{
-  include: { user: true };
+  include: {
+    user: true;
+    services: { select: { id: true; name: true; priceKes: true } };
+  };
 }>;
 
 function getFirstSearchParam(value: string | string[] | undefined) {
@@ -65,6 +68,8 @@ async function ProviderResults({
 }) {
   const where: Prisma.ProviderProfileWhereInput = {
     verificationStatus: "APPROVED",
+    servicesConfirmedAt: { not: null },
+    services: { some: {} },
   };
   const countyWhere = selectedCounty ? buildCountyWhere(selectedCounty) : [];
 
@@ -79,6 +84,10 @@ async function ProviderResults({
       where,
       include: {
         user: true,
+        services: {
+          orderBy: { priceKes: "asc" },
+          select: { id: true, name: true, priceKes: true },
+        },
       },
       orderBy: {
         createdAt: "desc",
@@ -121,6 +130,11 @@ async function ProviderResults({
               </p>
               <p className="text-sm text-slate-400 sm:text-base">
                 {provider.county}
+              </p>
+              <p className="mt-3 text-sm font-semibold text-emerald-300">
+                {provider.services.length} service
+                {provider.services.length === 1 ? "" : "s"} · from KES{" "}
+                {provider.services[0].priceKes.toLocaleString("en-KE")}
               </p>
 
               <Link

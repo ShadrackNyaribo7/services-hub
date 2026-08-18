@@ -16,6 +16,7 @@ export async function GET() {
     select: {
       id: true,
       verificationStatus: true,
+      servicesConfirmedAt: true,
       serviceCategory: true,
       bookings: {
         where: {
@@ -30,6 +31,7 @@ export async function GET() {
           clientPhone: true,
           county: true,
           scheduledDate: true,
+          serviceName: true,
           notes: true,
           status: true,
           paymentStatus: true,
@@ -49,6 +51,12 @@ export async function GET() {
   if (!provider || provider.verificationStatus !== "APPROVED") {
     return NextResponse.json(
       { error: "An approved provider profile is required." },
+      { status: 403 },
+    );
+  }
+  if (!provider.servicesConfirmedAt) {
+    return NextResponse.json(
+      { error: "Confirm your services and prices before opening operations." },
       { status: 403 },
     );
   }

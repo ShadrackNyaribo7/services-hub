@@ -26,6 +26,7 @@ export async function POST(request: Request) {
   try {
     const body = await readBoundedJsonObject(request);
     const providerProfileId = readTextInput(body, "providerProfileId", 64);
+    const providerServiceId = readTextInput(body, "providerServiceId", 64);
     const clientName = readTextInput(body, "clientName", 120);
     const clientPhone = mpesaService.formatPhoneNumber(
       readTextInput(body, "clientPhone", 24),
@@ -39,6 +40,7 @@ export async function POST(request: Request) {
 
     if (
       !providerProfileId ||
+      !providerServiceId ||
       !clientName ||
       !county ||
       !scheduledDateValue ||
@@ -76,14 +78,6 @@ export async function POST(request: Request) {
       );
     }
 
-    const amountValidation = validateServiceAmount(body.amount);
-    if (!amountValidation.valid) {
-      return NextResponse.json(
-        { error: amountValidation.error },
-        { status: 400 },
-      );
-    }
-
     const providerProfile = await prisma.providerProfile.findUnique({
       where: { id: providerProfileId },
       select: {
@@ -91,10 +85,15 @@ export async function POST(request: Request) {
         userId: true,
         serviceCategory: true,
         verificationStatus: true,
+        servicesConfirmedAt: true,
       },
     });
 
-    if (!providerProfile || providerProfile.verificationStatus !== "APPROVED") {
+    if (
+      !providerProfile ||
+      providerProfile.verificationStatus !== "APPROVED" ||
+      !providerProfile.servicesConfirmedAt
+    ) {
       return NextResponse.json(
         { error: "Provider is not available for booking." },
         { status: 404 },
@@ -108,6 +107,32 @@ export async function POST(request: Request) {
       );
     }
 
+    const providerService = await prisma.providerService.findFirst({
+      where: {
+        id: providerServiceId,
+        providerProfileId: providerProfile.id,
+      },
+      select: { id: true, name: true, priceKes: true },
+    });
+    if (!providerService) {
+      return NextResponse.json(
+        { error: "Choose a service currently offered by this provider." },
+        { status: 422 },
+      );
+    }
+
+    const amountValidation = validateServiceAmount(providerService.priceKes);
+    if (!amountValidation.valid) {
+      console.error(
+        "Provider service has an invalid stored price:",
+        providerService.id,
+      );
+      return NextResponse.json(
+        { error: "This service is temporarily unavailable for payment." },
+        { status: 409 },
+      );
+    }
+
     const profit = calculateMarketplaceProfit({
       amount: amountValidation.amount,
       serviceCategory: providerProfile.serviceCategory,
@@ -116,6 +141,8 @@ export async function POST(request: Request) {
     const booking = await prisma.booking.create({
       data: {
         providerProfileId,
+        providerServiceId: providerService.id,
+        serviceName: providerService.name,
         clientUserId: userId,
         clientName,
         clientPhone,

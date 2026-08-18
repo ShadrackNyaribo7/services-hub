@@ -450,12 +450,20 @@ function ProviderApplicationForm() {
           </button>
 
           {success && (
-            <p className="text-sm font-medium text-emerald-700">
+            <p
+              role="status"
+              aria-live="polite"
+              className="text-sm font-medium text-emerald-700"
+            >
               {message ??
                 "Application submitted successfully. Await admin review."}
             </p>
           )}
-          {error && <p className="text-sm font-medium text-red-700">{error}</p>}
+          {error && (
+            <p role="alert" className="text-sm font-medium text-red-700">
+              {error}
+            </p>
+          )}
         </form>
       </section>
     </main>

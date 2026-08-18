@@ -134,18 +134,20 @@ export async function POST(request: Request) {
 
     if (phoneVerificationRequested) {
       if (isMobileVerificationToken(phoneVerificationToken)) {
-        verifiedChallenge =
-          await prisma.mobileVerificationChallenge.findUnique({
+        verifiedChallenge = await prisma.mobileVerificationChallenge.findUnique(
+          {
             where: { tokenHash: hashOpaqueToken(phoneVerificationToken) },
-          });
+          },
+        );
       } else if (
         identity.method === "MPESA" &&
         identity.verificationChallengeId
       ) {
-        verifiedChallenge =
-          await prisma.mobileVerificationChallenge.findUnique({
+        verifiedChallenge = await prisma.mobileVerificationChallenge.findUnique(
+          {
             where: { id: identity.verificationChallengeId },
-          });
+          },
+        );
       } else {
         return NextResponse.json(
           {
@@ -158,8 +160,7 @@ export async function POST(request: Request) {
 
       const recentVerification =
         verifiedChallenge?.verifiedAt &&
-        verifiedChallenge.verifiedAt.getTime() >=
-          Date.now() - 60 * 60 * 1_000;
+        verifiedChallenge.verifiedAt.getTime() >= Date.now() - 60 * 60 * 1_000;
       const permittedPurpose =
         verifiedChallenge?.purpose === "PROVIDER_APPLICATION" ||
         (identity.method === "MPESA" &&
@@ -170,7 +171,6 @@ export async function POST(request: Request) {
         verifiedChallenge.status !== "VERIFIED" ||
         !permittedPurpose ||
         verifiedChallenge.phone !== phone ||
-        verifiedChallenge.consumedAt ||
         !recentVerification
       ) {
         return NextResponse.json(
@@ -179,6 +179,40 @@ export async function POST(request: Request) {
               "Complete a current M-Pesa verification for this mobile number before submitting.",
           },
           { status: 422 },
+        );
+      }
+
+      if (verifiedChallenge.consumedAt) {
+        const existingApplication = await prisma.user.findUnique({
+          where: { phone },
+          include: { providerProfile: true },
+        });
+        const belongsToIdentity =
+          !identity.userId || existingApplication?.id === identity.userId;
+        if (
+          existingApplication?.providerProfile?.phoneVerificationReference ===
+            verifiedChallenge.id &&
+          belongsToIdentity
+        ) {
+          return NextResponse.json(
+            {
+              application: existingApplication,
+              message:
+                existingApplication.providerProfile.verificationStatus ===
+                "APPROVED"
+                  ? "This application was already submitted and approved."
+                  : "This application was already submitted successfully.",
+            },
+            { status: 200 },
+          );
+        }
+
+        return NextResponse.json(
+          {
+            error:
+              "This M-Pesa verification has already been used. Start a new verification request.",
+          },
+          { status: 409 },
         );
       }
     } else if (identity.method === "MPESA") {

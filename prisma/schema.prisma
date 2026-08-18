@@ -55,10 +55,12 @@ model ProviderProfile {
   policeVerifiedBy              String?
   verificationStatus            VerificationStatus      @default(PENDING)
   adminNotes                    String?
+  servicesConfirmedAt           DateTime?
   createdAt                     DateTime                @default(now())
   bookings                      Booking[]
   locationEvents                ProviderLocationEvent[]
   ratings                       Rating[]
+  services                      ProviderService[]
   user                          User                    @relation(fields: [userId], references: [id])
 
   // Rating aggregation fields
@@ -70,6 +72,20 @@ model ProviderProfile {
   totalTwoStar   Int         @default(0)
   totalOneStar   Int         @default(0)
   rankingTier    RankingTier @default(NEW)
+}
+
+model ProviderService {
+  id                String          @id @default(cuid())
+  providerProfileId String
+  name              String
+  priceKes          Int
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  providerProfile   ProviderProfile @relation(fields: [providerProfileId], references: [id], onDelete: Cascade)
+  bookings          Booking[]
+
+  @@unique([providerProfileId, name])
+  @@index([providerProfileId])
 }
 
 model MobileVerificationChallenge {
@@ -113,6 +129,8 @@ model ProviderMobileSession {
 model Booking {
   id                         String                  @id @default(cuid())
   providerProfileId          String
+  providerServiceId          String?
+  serviceName                String?
   clientUserId               String?
   clientName                 String
   clientPhone                String
@@ -155,11 +173,13 @@ model Booking {
   providerLocationRiskFlag   String?
   providerLocationGapCount   Int                     @default(0)
   providerProfile            ProviderProfile         @relation(fields: [providerProfileId], references: [id])
+  providerService            ProviderService?        @relation(fields: [providerServiceId], references: [id], onDelete: SetNull)
   locationEvents             ProviderLocationEvent[]
   rating                     Rating?
 
   @@index([clientUserId])
   @@index([providerProfileId, status])
+  @@index([providerServiceId])
 }
 
 enum UserRole {
