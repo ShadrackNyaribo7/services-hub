@@ -33,7 +33,6 @@ export type CredentialVerificationInput = {
   fullName: string;
   serviceCategory: string;
   certificationNumber: string;
-  certificationNumberConfirmation: string;
   certificationHolderName: string;
   certificationIssuer: string;
   certificationName: string;
@@ -44,24 +43,18 @@ export type CredentialVerificationInput = {
 export const CREDENTIAL_MODALITY_INDEX = [
   {
     rank: 1,
-    method: "DUPLICATE_ENTRY_MATCH",
-    strength: "INPUT_INTEGRITY",
-    use: "Reject transcription differences in the credential number",
-  },
-  {
-    rank: 2,
     method: "HOLDER_NAME_CROSS_CHECK",
     strength: "CROSS_FIELD_CONSISTENCY",
     use: "Require the printed credential holder to match the applicant",
   },
   {
-    rank: 3,
+    rank: 2,
     method: "CATEGORY_CREDENTIAL_RULES",
     strength: "PLAUSIBILITY",
     use: "Check category, issuer claim, qualification title, and number pattern",
   },
   {
-    rank: 4,
+    rank: 3,
     method: "HMAC_EVIDENCE_SEAL",
     strength: "TAMPER_EVIDENCE",
     use: "Bind the accepted submission fields to a server-generated reference",
@@ -208,9 +201,6 @@ export async function verifyProviderCredential(
   const certificationNumber = input.certificationNumber
     .normalize("NFKC")
     .trim();
-  const confirmation = input.certificationNumberConfirmation
-    .normalize("NFKC")
-    .trim();
   const holderName = input.certificationHolderName.normalize("NFKC").trim();
   const issuer = resolveIssuerAlias(input.certificationIssuer);
   const certificationName = input.certificationName.normalize("NFKC").trim();
@@ -227,15 +217,6 @@ export async function verifyProviderCredential(
       "The name printed on the credential does not match the application name.",
       { holderMatched: false },
     );
-  }
-
-  if (
-    normalizeDocumentNumber(certificationNumber) !==
-    normalizeDocumentNumber(confirmation)
-  ) {
-    return rejected("Professional credential number entries do not match.", {
-      holderMatched: true,
-    });
   }
 
   if (

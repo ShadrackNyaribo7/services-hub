@@ -18,7 +18,6 @@ type IdentityVerificationInput = {
   fullName: string;
   identityDocumentName: string;
   idNumber: string;
-  idNumberConfirmation: string;
 };
 
 type PoliceClearanceVerificationInput = {
@@ -26,7 +25,6 @@ type PoliceClearanceVerificationInput = {
   policeClearanceName: string;
   idNumber: string;
   certificateNumber: string;
-  certificateNumberConfirmation: string;
 };
 
 const OFFLINE_PROVIDER = "OfflineEvidenceValidator";
@@ -101,7 +99,6 @@ class VerificationService {
     input: IdentityVerificationInput,
   ): Promise<VerificationResult> {
     const idNumber = input.idNumber.normalize("NFKC").trim();
-    const confirmation = input.idNumberConfirmation.normalize("NFKC").trim();
     const fullName = input.fullName.normalize("NFKC").trim();
     const documentName = input.identityDocumentName.normalize("NFKC").trim();
 
@@ -130,13 +127,6 @@ class VerificationService {
       );
     }
 
-    if (confirmation !== idNumber) {
-      return invalidResult(
-        "National ID entries do not match.",
-        IDENTITY_SOURCE,
-      );
-    }
-
     if (!namesMatch(fullName, documentName)) {
       return invalidResult(
         "The name printed on the National ID does not match the application name.",
@@ -153,7 +143,7 @@ class VerificationService {
 
     return validOfflineResult({
       reason:
-        "National ID entries are structurally valid, match each other, and match the submitted holder name. No government database lookup was performed.",
+        "National ID entries are structurally valid and match the submitted holder name. No government database lookup was performed.",
       reference,
       sourceUrl: IDENTITY_SOURCE,
     });
@@ -163,9 +153,6 @@ class VerificationService {
     input: PoliceClearanceVerificationInput,
   ): Promise<VerificationResult> {
     const certificateNumber = input.certificateNumber.normalize("NFKC").trim();
-    const confirmation = input.certificateNumberConfirmation
-      .normalize("NFKC")
-      .trim();
     const fullName = input.fullName.normalize("NFKC").trim();
     const documentName = input.policeClearanceName.normalize("NFKC").trim();
 
@@ -175,16 +162,6 @@ class VerificationService {
     ) {
       return invalidResult(
         "Police clearance number must be 5 to 64 letters, numbers, hyphens, or slashes and cannot be a placeholder, sequence, or repeated value.",
-        POLICE_SOURCE,
-      );
-    }
-
-    if (
-      normalizeDocumentNumber(confirmation) !==
-      normalizeDocumentNumber(certificateNumber)
-    ) {
-      return invalidResult(
-        "Police clearance number entries do not match.",
         POLICE_SOURCE,
       );
     }
@@ -224,7 +201,7 @@ class VerificationService {
 
     return validOfflineResult({
       reason:
-        "Police clearance entries are structurally valid, match each other, are distinct from the National ID, and match the submitted holder name. No DCI or government database lookup was performed.",
+        "Police clearance entries are structurally valid, are distinct from the National ID, and match the submitted holder name. No DCI or government database lookup was performed.",
       reference,
       sourceUrl: POLICE_SOURCE,
     });
@@ -234,25 +211,20 @@ class VerificationService {
     fullName: string;
     identityDocumentName: string;
     idNumber: string;
-    idNumberConfirmation: string;
     policeClearanceName: string;
     policeClearanceNumber: string;
-    policeClearanceNumberConfirmation: string;
   }) {
     const [idVerification, policeClearanceVerification] = await Promise.all([
       this.verifyIdNumber({
         fullName: documents.fullName,
         identityDocumentName: documents.identityDocumentName,
         idNumber: documents.idNumber,
-        idNumberConfirmation: documents.idNumberConfirmation,
       }),
       this.verifyPoliceClearance({
         fullName: documents.fullName,
         policeClearanceName: documents.policeClearanceName,
         idNumber: documents.idNumber,
         certificateNumber: documents.policeClearanceNumber,
-        certificateNumberConfirmation:
-          documents.policeClearanceNumberConfirmation,
       }),
     ]);
 

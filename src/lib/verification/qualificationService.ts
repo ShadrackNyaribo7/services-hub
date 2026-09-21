@@ -19,13 +19,10 @@ export type ProviderQualificationInput = {
   fullName: string;
   serviceCategory: string;
   idNumber?: string | null;
-  idNumberConfirmation?: string | null;
   identityDocumentName?: string | null;
   policeClearanceNumber?: string | null;
-  policeClearanceNumberConfirmation?: string | null;
   policeClearanceName?: string | null;
   certificationNumber?: string | null;
-  certificationNumberConfirmation?: string | null;
   certificationHolderName?: string | null;
   certificationIssuer?: string | null;
   certificationName?: string | null;
@@ -252,9 +249,6 @@ async function verifyServiceCertification(
   }
 
   const certificationNumber = cleanValue(input.certificationNumber);
-  const certificationNumberConfirmation = cleanValue(
-    input.certificationNumberConfirmation,
-  );
   const certificationHolderName = cleanValue(input.certificationHolderName);
   const certificationIssuer = cleanValue(input.certificationIssuer);
   const certificationName = cleanValue(input.certificationName);
@@ -285,7 +279,6 @@ async function verifyServiceCertification(
   }
 
   if (
-    !certificationNumberConfirmation ||
     !certificationHolderName ||
     !certificationIssuer ||
     !certificationName
@@ -295,7 +288,7 @@ async function verifyServiceCertification(
       label: requirement.label,
       valid: false,
       reason:
-        "Credential number confirmation, printed holder name, issuer, and exact qualification or licence name are required.",
+        "Credential holder name, issuer, and exact qualification or licence name are required.",
       provider: "QualificationRules",
       requiresManualReview: false,
     };
@@ -322,7 +315,6 @@ async function verifyServiceCertification(
     fullName: cleanValue(input.fullName),
     serviceCategory: input.serviceCategory,
     certificationNumber,
-    certificationNumberConfirmation,
     certificationHolderName,
     certificationIssuer,
     certificationName,
@@ -361,12 +353,8 @@ export async function runProviderQualificationCheck(
       fullName: cleanValue(input.fullName),
       identityDocumentName: cleanValue(input.identityDocumentName),
       idNumber,
-      idNumberConfirmation: cleanValue(input.idNumberConfirmation),
       policeClearanceName: cleanValue(input.policeClearanceName),
       policeClearanceNumber,
-      policeClearanceNumberConfirmation: cleanValue(
-        input.policeClearanceNumberConfirmation,
-      ),
     }),
     verifyServiceCertification(input),
   ]);

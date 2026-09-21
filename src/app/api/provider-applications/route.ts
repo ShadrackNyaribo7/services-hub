@@ -40,11 +40,6 @@ export async function POST(request: Request) {
     const submittedIdNumber =
       readTextInput(body, "IDnumber", 16) ||
       readTextInput(body, "idNumber", 16);
-    const idNumberConfirmation = readTextInput(
-      body,
-      "idNumberConfirmation",
-      16,
-    );
     const identityDocumentName = readTextInput(
       body,
       "identityDocumentName",
@@ -55,20 +50,10 @@ export async function POST(request: Request) {
       "policeClearanceNumber",
       64,
     );
-    const policeClearanceNumberConfirmation = readTextInput(
-      body,
-      "policeClearanceNumberConfirmation",
-      64,
-    );
     const policeClearanceName = readTextInput(body, "policeClearanceName", 120);
     const submittedCertificationNumber = readTextInput(
       body,
       "certificationNumber",
-      64,
-    );
-    const certificationNumberConfirmation = readTextInput(
-      body,
-      "certificationNumberConfirmation",
       64,
     );
     const certificationHolderName = readTextInput(
@@ -229,13 +214,10 @@ export async function POST(request: Request) {
       fullName,
       serviceCategory,
       idNumber: submittedIdNumber,
-      idNumberConfirmation,
       identityDocumentName,
       policeClearanceNumber: submittedPoliceClearanceNumber,
-      policeClearanceNumberConfirmation,
       policeClearanceName,
       certificationNumber: submittedCertificationNumber,
-      certificationNumberConfirmation,
       certificationHolderName,
       certificationIssuer: submittedCertificationIssuer,
       certificationName: submittedCertificationName,

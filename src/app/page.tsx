@@ -18,7 +18,7 @@ export default function Home() {
         </h1>
 
         <p className="mt-5 max-w-2xl text-base text-slate-300 sm:text-lg">
-          Connect with providers approved through structured offline evidence
+          Connect with providers approved through structured evidence
           checks, then book and pay securely.
         </p>
 

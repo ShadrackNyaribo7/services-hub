@@ -96,17 +96,10 @@ function ProviderApplicationForm() {
       county: formData.get("county") as string,
       serviceCategory: formData.get("serviceCategory") as string,
       policeClearanceNumber: formData.get("policeClearanceNumber") as string,
-      policeClearanceNumberConfirmation: formData.get(
-        "policeClearanceNumberConfirmation",
-      ) as string,
       policeClearanceName: formData.get("policeClearanceName") as string,
       idNumber: formData.get("idNumber") as string,
-      idNumberConfirmation: formData.get("idNumberConfirmation") as string,
       identityDocumentName: formData.get("identityDocumentName") as string,
       certificationNumber: formData.get("certificationNumber") as string,
-      certificationNumberConfirmation: formData.get(
-        "certificationNumberConfirmation",
-      ) as string,
       certificationHolderName: formData.get(
         "certificationHolderName",
       ) as string,
@@ -268,22 +261,6 @@ function ProviderApplicationForm() {
 
           <label className="block">
             <span className="font-medium text-emerald-400">
-              Re-enter ID number
-            </span>
-            <input
-              name="idNumberConfirmation"
-              required
-              inputMode="numeric"
-              pattern="[0-9]{7,10}"
-              minLength={7}
-              maxLength={10}
-              autoComplete="off"
-              className="mt-2 min-h-[44px] w-full rounded-md border px-3 py-2"
-            />
-          </label>
-
-          <label className="block">
-            <span className="font-medium text-emerald-400">
               Full name exactly as printed on ID
             </span>
             <input
@@ -308,21 +285,6 @@ function ProviderApplicationForm() {
               pattern="[A-Za-z0-9][A-Za-z0-9/-]{4,63}"
               autoComplete="off"
               className="mt-2 w-full rounded-md border px-3 py-2 min-h-[44px]"
-            />
-          </label>
-
-          <label className="block">
-            <span className="font-medium text-emerald-400">
-              Re-enter Police Clearance Certificate number
-            </span>
-            <input
-              name="policeClearanceNumberConfirmation"
-              required
-              minLength={5}
-              maxLength={64}
-              pattern="[A-Za-z0-9][A-Za-z0-9/-]{4,63}"
-              autoComplete="off"
-              className="mt-2 min-h-[44px] w-full rounded-md border px-3 py-2"
             />
           </label>
 
@@ -357,19 +319,6 @@ function ProviderApplicationForm() {
               Electrical providers must use their EPRA electrical-worker licence
               number.
             </span>
-          </label>
-
-          <label className="block">
-            <span className="font-medium text-emerald-400">
-              Re-enter professional certificate/license number
-            </span>
-            <input
-              name="certificationNumberConfirmation"
-              required={credentialRequired}
-              maxLength={64}
-              autoComplete="off"
-              className="mt-2 min-h-[44px] w-full rounded-md border px-3 py-2"
-            />
           </label>
 
           <label className="block">
