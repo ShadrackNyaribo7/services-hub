@@ -117,7 +117,7 @@ const SERVICE_CERTIFICATION_REQUIREMENTS: Record<
     label: "Gardening or horticulture certificate",
   },
   "interior decorator": {
-    required: true,
+    required: false,
     label: "Interior decoration certificate",
   },
   painter: {

@@ -25,7 +25,7 @@ function ProviderApplicationForm() {
   const [mobileVerificationError, setMobileVerificationError] = useState<
     string | null
   >(null);
-  const credentialRequired = serviceCategory !== "Cleaning";
+  const credentialRequired = serviceCategory !== "Cleaning" && serviceCategory !== "Interior Decorator";
   const mobileVerificationRequired = isUserLoaded && !isSignedIn;
   const verifyMobile = mobileVerificationRequired || verifyMobileChoice;
   const hasMobileVerification =
