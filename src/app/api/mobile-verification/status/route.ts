@@ -16,7 +16,7 @@ import {
   RequestInputError,
 } from "@/lib/verification/requestGuards";
 
-const MPESA_STATUS_QUERY_INTERVAL_MS = 12_000;
+const MPESA_STATUS_QUERY_INTERVAL_MS = 5_000;
 const PENDING_STATUS_DESCRIPTION = "Awaiting M-Pesa status confirmation.";
 
 async function touchPendingChallenge(
@@ -102,6 +102,8 @@ function verificationFailureMessage(resultCode: number | null) {
       return "The M-Pesa prompt timed out. Confirm the phone is reachable and start a new request.";
     case 2001:
       return "M-Pesa could not verify the PIN. Start a new request and try again.";
+    case 4999:
+      return "The M-Pesa transaction is still processing. Wait 2-3 minutes, then click 'Verify with M-Pesa' again to check status.";
     default:
       return "M-Pesa verification was not completed. Start a new request.";
   }

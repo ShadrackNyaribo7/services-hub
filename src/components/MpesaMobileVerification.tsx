@@ -110,7 +110,7 @@ export default function MpesaMobileVerification({
         }
 
         setMessage(result.message || "Waiting for the M-Pesa confirmation.");
-        timeoutId = setTimeout(checkStatus, 3_000);
+        timeoutId = setTimeout(checkStatus, 2_000);
       } catch {
         if (cancelled) return;
         if (Number.isFinite(deadline) && Date.now() >= deadline) {
@@ -196,6 +196,9 @@ export default function MpesaMobileVerification({
           <p className="font-semibold">Waiting for M-Pesa confirmation</p>
           <p className="mt-1">{message}</p>
           <p className="mt-1">Do not refresh this page while confirming.</p>
+          <p className="mt-2 text-xs text-amber-800">
+            💡 Tip: Check your phone for the M-Pesa STK prompt and enter your PIN promptly. If you don't see it within 30 seconds, click "Verify with M-Pesa" again.
+          </p>
         </div>
       )}
       {state === "verified" && (

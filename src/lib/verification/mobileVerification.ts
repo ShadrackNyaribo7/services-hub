@@ -5,7 +5,7 @@ import type { MobileVerificationPurpose } from "@prisma/client";
 import { hashOpaqueToken } from "@/lib/auth/providerMobileSession";
 
 export const MOBILE_VERIFICATION_AMOUNT_KES = 1;
-export const MOBILE_VERIFICATION_LIFETIME_MS = 10 * 60 * 1_000;
+export const MOBILE_VERIFICATION_LIFETIME_MS = 15 * 60 * 1_000;
 
 export function createMobileVerificationToken() {
   const token = randomBytes(32).toString("base64url");

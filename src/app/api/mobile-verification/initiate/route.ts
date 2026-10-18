@@ -21,8 +21,8 @@ import {
   RequestInputError,
 } from "@/lib/verification/requestGuards";
 
-const PHONE_REQUESTS_PER_HOUR = 3;
-const CLIENT_REQUESTS_PER_HOUR = 10;
+const PHONE_REQUESTS_PER_HOUR = 5;
+const CLIENT_REQUESTS_PER_HOUR = 15;
 
 export async function POST(request: Request) {
   if (!isTrustedSameOriginRequest(request)) {
