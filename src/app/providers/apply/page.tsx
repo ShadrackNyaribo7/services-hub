@@ -99,12 +99,10 @@ function ProviderApplicationForm() {
       policeClearanceName: formData.get("policeClearanceName") as string,
       idNumber: formData.get("idNumber") as string,
       identityDocumentName: formData.get("identityDocumentName") as string,
-      certificationNumber: formData.get("certificationNumber") as string,
-      certificationHolderName: formData.get(
-        "certificationHolderName",
-      ) as string,
-      certificationIssuer: formData.get("certificationIssuer") as string,
-      certificationName: formData.get("certificationName") as string,
+      certificationNumber: credentialRequired ? (formData.get("certificationNumber") as string) : undefined,
+      certificationHolderName: credentialRequired ? (formData.get("certificationHolderName") as string) : undefined,
+      certificationIssuer: credentialRequired ? (formData.get("certificationIssuer") as string) : undefined,
+      certificationName: credentialRequired ? (formData.get("certificationName") as string) : undefined,
       verificationConsent: formData.get("verificationConsent") === "yes",
       phoneVerificationRequested: hasMobileVerification,
       phoneVerificationToken: mobileVerificationToken || undefined,
@@ -302,77 +300,81 @@ function ProviderApplicationForm() {
             />
           </label>
 
-          <label className="block">
-            <span className="font-medium text-emerald-400">
-              Professional certificate/license number
-            </span>
-            <input
-              name="certificationNumber"
-              required={credentialRequired}
-              maxLength={64}
-              placeholder={
-                serviceCategory === "Electrical" ? "EPRA/EW/12345" : undefined
-              }
-              className="mt-2 min-h-[44px] w-full rounded-md border px-3 py-2"
-            />
-            <span className="mt-1 block text-sm text-slate-600">
-              Electrical providers must use their EPRA electrical-worker licence
-              number.
-            </span>
-          </label>
+          {credentialRequired && (
+            <>
+              <label className="block">
+                <span className="font-medium text-emerald-400">
+                  Professional certificate/license number
+                </span>
+                <input
+                  name="certificationNumber"
+                  required
+                  maxLength={64}
+                  placeholder={
+                    serviceCategory === "Electrical" ? "EPRA/EW/12345" : undefined
+                  }
+                  className="mt-2 min-h-[44px] w-full rounded-md border px-3 py-2"
+                />
+                <span className="mt-1 block text-sm text-slate-600">
+                  Electrical providers must use their EPRA electrical-worker licence
+                  number.
+                </span>
+              </label>
 
-          <label className="block">
-            <span className="font-medium text-emerald-400">
-              Full name exactly as printed on the credential
-            </span>
-            <input
-              name="certificationHolderName"
-              required={credentialRequired}
-              minLength={5}
-              maxLength={120}
-              autoComplete="off"
-              className="mt-2 min-h-[44px] w-full rounded-md border px-3 py-2"
-            />
-          </label>
+              <label className="block">
+                <span className="font-medium text-emerald-400">
+                  Full name exactly as printed on the credential
+                </span>
+                <input
+                  name="certificationHolderName"
+                  required
+                  minLength={5}
+                  maxLength={120}
+                  autoComplete="off"
+                  className="mt-2 min-h-[44px] w-full rounded-md border px-3 py-2"
+                />
+              </label>
 
-          <label className="block">
-            <span className="font-medium text-emerald-400">
-              Issuing institution or regulator
-            </span>
-            <input
-              name="certificationIssuer"
-              required={credentialRequired}
-              maxLength={160}
-              list="credential-issuers"
-              placeholder="EPRA, NITA, KNEC, TVET CDACC..."
-              className="mt-2 min-h-[44px] w-full rounded-md border px-3 py-2"
-            />
-            <datalist id="credential-issuers">
-              <option value="Energy and Petroleum Regulatory Authority" />
-              <option value="National Industrial Training Authority" />
-              <option value="Kenya National Examinations Council" />
-              <option value="TVET Curriculum Development Assessment and Certification Council" />
-              <option value="National Construction Authority" />
-              <option value="National Transport and Safety Authority" />
-            </datalist>
-          </label>
+              <label className="block">
+                <span className="font-medium text-emerald-400">
+                  Issuing institution or regulator
+                </span>
+                <input
+                  name="certificationIssuer"
+                  required
+                  maxLength={160}
+                  list="credential-issuers"
+                  placeholder="EPRA, NITA, KNEC, TVET CDACC..."
+                  className="mt-2 min-h-[44px] w-full rounded-md border px-3 py-2"
+                />
+                <datalist id="credential-issuers">
+                  <option value="Energy and Petroleum Regulatory Authority" />
+                  <option value="National Industrial Training Authority" />
+                  <option value="Kenya National Examinations Council" />
+                  <option value="TVET Curriculum Development Assessment and Certification Council" />
+                  <option value="National Construction Authority" />
+                  <option value="National Transport and Safety Authority" />
+                </datalist>
+              </label>
 
-          <label className="block">
-            <span className="font-medium text-emerald-400">
-              Exact qualification or licence name
-            </span>
-            <input
-              name="certificationName"
-              required={credentialRequired}
-              maxLength={160}
-              placeholder={
-                serviceCategory === "Electrical"
-                  ? "Electrical Worker Licence"
-                  : "As printed on the certificate"
-              }
-              className="mt-2 min-h-[44px] w-full rounded-md border px-3 py-2"
-            />
-          </label>
+              <label className="block">
+                <span className="font-medium text-emerald-400">
+                  Exact qualification or licence name
+                </span>
+                <input
+                  name="certificationName"
+                  required
+                  maxLength={160}
+                  placeholder={
+                    serviceCategory === "Electrical"
+                      ? "Electrical Worker Licence"
+                      : "As printed on the certificate"
+                  }
+                  className="mt-2 min-h-[44px] w-full rounded-md border px-3 py-2"
+                />
+              </label>
+            </>
+          )}
 
           <label className="flex items-start gap-3 text-sm text-slate-700">
             <input
